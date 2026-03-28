@@ -93,6 +93,21 @@ body{
 .mle.p1{color:#f4a460;}
 .mle.sys{color:var(--text2);font-style:italic;}
 .mle.craplog{font-weight:bold;background:rgba(233,69,96,0.12);border-radius:2px;}
+.mle.bf-best{color:#ff4444;font-weight:bold;}
+.mle.bf-other{color:var(--text2);font-style:italic;}
+#seqlog{
+  height:40vh;overflow-y:scroll;padding:0;border-bottom:1px solid rgba(255,255,255,0.15);
+  display:none;flex-direction:column;flex-shrink:0;
+}
+#seqlog.visible{display:flex;}
+#seqlog-title{
+  font-size:0.55rem;color:var(--text2);padding:2px 4px;flex-shrink:0;position:sticky;top:0;
+  background:var(--bg2);border-bottom:1px solid rgba(255,255,255,0.08);z-index:1;
+}
+#seqlog .mle{
+  white-space:pre-wrap;word-break:break-all;overflow:visible;text-overflow:clip;
+  padding:1px 4px;
+}
 .mle.turn-sep{
   border-top:1px solid rgba(255,255,255,0.15);
   margin-top:2px;padding-top:2px;
@@ -207,11 +222,7 @@ body{
   <div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);flex-shrink:0;">
     <span>🧠</span>
     <select id="ai-level" style="background:var(--bg3);color:var(--text);border:none;border-radius:4px;padding:2px 4px;font-size:0.62rem;cursor:pointer;">
-      <option value="1">Niv 1</option>
-      <option value="2">Niv 2</option>
-      <option value="3" selected>Niv 3</option>
-      <option value="4">Niv 4</option>
-      <option value="5">Niv 5</option>
+      <option value="6" selected>BF</option>
     </select>
   </div>
   <div style="display:flex;gap:5px;">
@@ -220,10 +231,11 @@ body{
       <input type="checkbox" id="step-check" onchange="toggleStepMode()" title="Pas-à-pas IA">
       <label for="step-check" style="cursor:pointer">PàP</label>
       <button class="btn" id="step-next" onclick="stepOrPlay()" style="display:none;padding:3px 8px;">▶</button>
+      <button class="btn" id="btn-seq-toggle" onclick="toggleBFSeqPin()" style="display:none;padding:3px 6px;" title="Afficher/masquer les séquences BF">≡</button>
     </span>
     <button class="btn" id="btn-undo" onclick="undo()" title="Retour arrière">↩</button>
-    <button class="btn" onclick="saveWithPrompt()" title="Sauvegarder la situation">💾</button>
-    <button class="btn" onclick="loadSaveModal()" title="Charger une sauvegarde">📂</button>
+    <button class="btn" onclick="saveToFile()" title="Sauvegarder (télécharger fichier)">💾</button>
+    <button class="btn" onclick="loadFromFile()" title="Charger une sauvegarde (fichier)">📂</button>
     <button class="btn" onclick="snapshot()">📋</button>
     <button class="btn red" onclick="showMenu()">Menu</button>
   </div>
@@ -234,6 +246,9 @@ body{
   <div id="game"></div>
   <div id="resizer"></div>
   <div id="sidebar">
+    <div id="seqlog">
+      <div id="seqlog-title">Séquences BF</div>
+    </div>
     <div class="stitle">
       <span>Coups</span>
       <button onclick="clearMoveLog()">✕</button>
@@ -335,10 +350,35 @@ function newGame(vsAI){
     if(t&&t.num===13) UI.pileKingPending[ci]=true;
   }
 
+  // Déterminer qui commence selon la règle de mise en place
+  const {first,reason}=_determineFirstPlayer(
+    cr0[cr0.length-1], cr1[cr1.length-1],
+    p1card, p3card, p2card, p4card
+  );
+  G.cur=first;
+
   _moveCount=0;
   saveSnap();clearMoveLog();
   addMoveLog('═ Début de partie','sys');
-  render();setStatus(`${G.players[0].name} commence !`);showBtns();
+  addMoveLog(`${G.players[first].name} commence (${reason})`,'sys');
+  render();setStatus(`${G.players[first].name} commence (${reason}) !`);showBtns();
+  if(UI.vsAI&&G.cur===UI.aiIdx) setTimeout(aiPlayTurn,500);
+}
+
+// Règle de mise en place : plus petite crapette → 1re carte de pile → 2e carte de pile → aléatoire
+// Le roi vaut 2 pour cette comparaison.
+function _determineFirstPlayer(crTop0,crTop1,pile1a,pile1b,pile2a,pile2b){
+  const cv=c=>c.num===13?2:c.num;
+  if(cv(crTop0)!==cv(crTop1))
+    return {first:cv(crTop0)<cv(crTop1)?0:1,
+            reason:'crapette '+crTop0.value+' vs '+crTop1.value};
+  if(cv(pile1a)!==cv(pile1b))
+    return {first:cv(pile1a)<cv(pile1b)?0:1,
+            reason:'1re pile '+pile1a.value+' vs '+pile1b.value};
+  if(cv(pile2a)!==cv(pile2b))
+    return {first:cv(pile2a)<cv(pile2b)?0:1,
+            reason:'2e pile '+pile2a.value+' vs '+pile2b.value};
+  return {first:Math.random()<0.5?0:1, reason:'tirage au sort'};
 }
 
 function sortHand(cards){return [...cards].sort((a,b)=>a.num-b.num);}
@@ -964,6 +1004,7 @@ let _debugMode=false; // mode debug : cartes IA visibles + log main à chaque co
 let _replayingAI=false; // true pendant le replay des moves IA
 let _stepMode=false;  // mode pas-à-pas IA
 let _stepResolve=null; // callback en attente du clic "suivant"
+let _bfSeqPinned=true; // panel séquences épinglé (ne se masque pas automatiquement)
 
 function aiPlayTurn(){
   if(_stepResolve!==null) return; // pas-à-pas en cours, ignorer
@@ -987,7 +1028,15 @@ function aiPlayTurn(){
     uniq.slice(0,8).forEach(l=>addMoveLog('[D] '+l,'sys'));
     window._dbgDemandLog=[];
   }
-  // Rejouer les moves un par un avec animation
+  // Toujours mettre à jour le panel en mode debug
+  if(_debugMode) renderBFSeq();
+  // En mode pas-à-pas debug : attendre ▶ avant de jouer
+  if(_stepMode&&_debugMode){
+    _stepResolve=()=>_replayMoves(moves);
+    _updateStepUI();
+    setStatus('[PàP] '+(window._dbgBFSequences?window._dbgBFSequences.length:0)+' séquence(s) — ▶ pour jouer');
+    return;
+  }
   _replayMoves(moves);
 }
 
@@ -1030,6 +1079,7 @@ function _restoreGameState(s){
 function _replayMoves(moves){
   if(!moves.length||G.phase==='game-over'){
     _replayingAI=false;
+    hideBFSeq();
     if(G.phase!=='game-over'&&G.cur===UI.aiIdx){
       // Défausse : calculée sur l'état réel courant
       window._simulating=true;
@@ -1048,15 +1098,31 @@ function _replayMoves(moves){
   }
   _replayingAI=true;
   const mv=moves.shift();
+  // Vérifier découverte AVANT application (G est encore l'état avant le coup)
+  const _discovery=(mv.type==='play'&&mv.src&&mv.src.type==='crapette')
+    ||(mv.type==='init'&&!mv.card)
+    ||(mv.type==='redraw');
   _applyMoveWithAnim(mv,()=>{
     const delay=flyDur>0?flyDur+150:100;
+    // Toujours mettre à jour le panel en mode debug
+    if(_debugMode) renderBFSeq();
     if(_stepMode&&_debugMode){
-      // Attendre le clic "suivant"
-      _stepResolve=()=>_replayMoves(moves);
+      // Pause après le coup : attendre ▶
+      if(_discovery){
+        _stepResolve=()=>{hideBFSeq();aiPlayTurn();};
+        setStatus('[PàP] Découverte — ▶ pour recalculer');
+      } else {
+        _stepResolve=()=>_replayMoves(moves);
+        setStatus('[PàP] Coup joué — ▶ pour continuer');
+      }
       _updateStepUI();
-      setStatus(`[PàP] Coup joué — cliquez ▶ pour continuer`);
     } else {
-      _aiTimer=setTimeout(()=>_replayMoves(moves), delay);
+      if(_discovery){
+        hideBFSeq();
+        _aiTimer=setTimeout(aiPlayTurn,delay);
+      } else {
+        _aiTimer=setTimeout(()=>_replayMoves(moves),delay);
+      }
     }
   });
 }
@@ -1125,10 +1191,9 @@ function _applyMoveWithAnim(mv,cb){
 
 function _buildAiSequence(){
   window._simulating=true;
-  const aiLevel=parseInt(document.getElementById('ai-level')?.value||'3');
   if(_debugMode){
     window._dbgDemandLog=window._dbgDemandLog||[];
-    window._dbgDemandLog.push('BUILD aiLevel='+aiLevel+' cur='+G.cur+' snap='+!!G.startDefSnap);
+    window._dbgDemandLog.push('BUILD BF cur='+G.cur+' snap='+!!G.startDefSnap);
   }
 
   // PHASE 0 : coups imposés inconditionnels avant toute recherche
@@ -1137,22 +1202,13 @@ function _buildAiSequence(){
   _applyForcedMoves();
 
   if(G.phase!=='game-over'){
-    if(aiLevel<=1){
-      let moved=true,iters=0;
-      while(moved&&iters<200&&G.phase!=='game-over'){moved=_aiGreedyMove();iters++;}
-    } else {
-      try {
-        const moves=_miniMaxBestSequence(aiLevel);
-        // Les moves 'end' sont utilisés pour l'évaluation minimax mais pas exécutés
-        // directement — _aiDiscard s'en charge après
-        const playMoves=moves.filter(mv=>mv.type!=='end');
-        _aiMoves.push(...playMoves);
-        for(const mv of playMoves) _applyMoveToState(G,UI,mv);
-      } catch(e) {
-        console.error('Minimax error:',e);
-        let moved=true,iters=0;
-        while(moved&&iters<200&&G.phase!=='game-over'){moved=_aiGreedyMove();iters++;}
-      }
+    try {
+      const moves=_bruteForce();
+      const playMoves=moves.filter(mv=>mv.type!=='end');
+      _aiMoves.push(...playMoves);
+      for(const mv of playMoves) _applyMoveToState(G,UI,mv);
+    } catch(e) {
+      console.error('BruteForce error:',e);
     }
   }
   window._simulating=false;
@@ -1180,7 +1236,11 @@ function _applyForcedMoves(){
       if(UI.pileKingPending[ci]){
         const p=G.players[G.cur];
         const crTop=peek(p.crapette);const crNum=crTop?crTop.num:0;
-        const cards=_aiAllCards();
+        const cards=[
+          ...p.hand.map(c=>({c,src:{type:'hand'}})),
+          crTop?{c:crTop,src:{type:'crapette'}}:null,
+          ...p.defausse.map((pile,i)=>peek(pile)?{c:peek(pile),src:{type:'defausse',index:i}}:null)
+        ].filter(Boolean);
         const playable=cards.filter(({c})=>canOnCommon(c,ci));
         // Filtrer : la carte posée doit être utile
         // Filtrer avec la règle centralisée du roi
@@ -1262,153 +1322,58 @@ function _q(mv){_aiMoves.push(mv);}
 // ══════════════════════════════════════════════
 // SAUVEGARDES DEBUG NOMMÉES
 // ══════════════════════════════════════════════
-function listSaves(){
-  const saves=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    if(k&&k.startsWith('crapka_save_')) saves.push(k.slice(12));
-  }
-  return saves.sort().reverse();
-}
-
-function saveNamedSlot(name){
+// Sauvegarde vers un fichier téléchargé dans le dossier de téléchargement de l'OS.
+// Le fichier contient : état courant + 2 niveaux de rollback + niveau IA.
+function saveToFile(){
   if(!G){setStatus('Pas de partie en cours');return;}
-  const snap=_buildUndoSnap();
-  const key='crapka_save_'+name;
-  try{
-    localStorage.setItem(key,JSON.stringify(snap));
-    setStatus('💾 Sauvegardé: '+name);
-    addMoveLog('💾 Save: '+name,'sys');
-  } catch(e){ setStatus('Erreur sauvegarde'); }
-}
-
-function saveWithPrompt(){
+  const aiLevel=parseInt(document.getElementById('ai-level')?.value||'6');
+  const current=_buildUndoSnap();
+  const rollback=_undoStack.slice(-2);
+  const data={version:1,aiLevel,current,rollback};
   const now=new Date();
-  const auto=now.toISOString().slice(0,16).replace('T',' ');
-  const name=window.prompt('Nom de la sauvegarde:',auto)||auto;
-  saveNamedSlot(name);
+  const ts=now.toISOString().slice(0,19).replace('T','_').replace(/:/g,'-');
+  const filename='crapka_'+ts+'.json';
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('💾 Téléchargé: '+filename);
+  addMoveLog('💾 Sauvegarde: '+filename,'sys');
 }
 
-function loadSaveModal(){
-  const saves=listSaves();
-  // Construire la modale manuellement avec liste défilante
-  document.getElementById('mtitle').textContent='📂 Sauvegardes';
-  document.getElementById('mbody').innerHTML='';
-
-  // Liste défilante
-  const list=document.createElement('div');
-  list.style.cssText='max-height:50vh;overflow-y:auto;border:1px solid var(--bg3);border-radius:6px;margin-bottom:8px;';
-
-  let selected=null; // nom de la sauvegarde sélectionnée
-
-  if(!saves.length){
-    const empty=document.createElement('div');
-    empty.style.cssText='padding:12px;text-align:center;color:var(--text2);font-size:0.8rem;';
-    empty.textContent='Aucune sauvegarde';
-    list.appendChild(empty);
-  }
-
-  function selectRow(name){
-    list.querySelectorAll('[data-name]').forEach(r=>{
-      const sel=r.dataset.name===name;
-      r.style.background=sel?'var(--blue)':'';
-      r.style.color=sel?'#fff':'';
-      if(sel) r.scrollIntoView({block:'nearest'});
-    });
-    selected=name;
-    loadBtn.disabled=false;
-    delBtn.disabled=false;
-  }
-
-  saves.forEach(name=>{
-    const row=document.createElement('div');
-    row.style.cssText='padding:8px 12px;cursor:pointer;font-size:0.72rem;border-bottom:1px solid var(--bg3);display:flex;align-items:center;gap:8px;transition:background 0.1s;';
-    row.dataset.name=name;
-    const label=document.createElement('span');
-    label.textContent=name;
-    label.style.flex='1';
-    row.appendChild(label);
-    row.onclick=()=>selectRow(name);
-    row.ondblclick=()=>{ selected=name; doLoad(); };
-    // Petit bouton supprimer sur la ligne
-    const rowDel=document.createElement('button');
-    rowDel.textContent='✕';
-    rowDel.style.cssText='background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.65rem;padding:0 4px;opacity:0.5;flex-shrink:0;';
-    rowDel.title='Supprimer';
-    rowDel.onclick=(e)=>{
-      e.stopPropagation();
-      if(!confirm('Supprimer "'+name+'" ?')) return;
-      localStorage.removeItem('crapka_save_'+name);
-      setStatus('🗑 Supprimé: '+name);
-      closeModal();
-      loadSaveModal();
+// Chargement depuis un fichier JSON sélectionné par l'utilisateur.
+function loadFromFile(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='.json';
+  inp.onchange=()=>{
+    const file=inp.files&&inp.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const data=JSON.parse(e.target.result);
+        const snap=data.version?data.current:data; // compat ancien format
+        _restoreFromSnap(snap);
+        if(data.rollback&&Array.isArray(data.rollback)){
+          _undoStack.push(...data.rollback);
+        }
+        if(data.aiLevel){
+          const sel=document.getElementById('ai-level');
+          if(sel) sel.value=String(data.aiLevel);
+        }
+        setStatus('📂 Chargé: '+file.name);
+        addMoveLog('📂 Load: '+file.name,'sys');
+      } catch(err){ setStatus('Erreur lecture fichier'); }
     };
-    row.appendChild(rowDel);
-    list.appendChild(row);
-  });
-
-  // Navigation clavier haut/bas
-  list.tabIndex=0;
-  list.style.outline='none';
-  list.onkeydown=(e)=>{
-    if(!saves.length) return;
-    const idx=selected?saves.indexOf(selected):-1;
-    if(e.key==='ArrowDown'){
-      e.preventDefault();
-      selectRow(saves[Math.min(idx+1,saves.length-1)]);
-    } else if(e.key==='ArrowUp'){
-      e.preventDefault();
-      selectRow(saves[Math.max(idx-1,0)]);
-    } else if(e.key==='Enter'&&selected){
-      doLoad();
-    } else if(e.key==='Delete'&&selected){
-      delBtn.click();
-    }
+    reader.readAsText(file);
   };
-  // Focus la liste pour activer le clavier
-  setTimeout(()=>list.focus(),50);
-
-  document.getElementById('mbody').appendChild(list);
-
-  // Boutons d'action
-  const btnsEl=document.getElementById('mbtns');
-  btnsEl.innerHTML='';
-
-  const loadBtn=document.createElement('button');
-  loadBtn.className='btn';loadBtn.textContent='📂 Charger';loadBtn.disabled=true;
-  const delBtn=document.createElement('button');
-  delBtn.className='btn red';delBtn.textContent='🗑 Supprimer';delBtn.disabled=true;
-  const cancelBtn=document.createElement('button');
-  cancelBtn.className='btn';cancelBtn.textContent='Annuler';
-
-  function doLoad(){
-    if(!selected) return;
-    try{
-      const raw=localStorage.getItem('crapka_save_'+selected);
-      if(!raw){setStatus('Sauvegarde introuvable');closeModal();return;}
-      _restoreFromSnap(JSON.parse(raw));
-      setStatus('📂 Chargé: '+selected);
-      addMoveLog('📂 Load: '+selected,'sys');
-      closeModal();
-    } catch(e){ setStatus('Erreur chargement'); closeModal(); }
-  }
-
-  loadBtn.onclick=doLoad;
-  delBtn.onclick=()=>{
-    if(!selected) return;
-    if(!window.confirm('Supprimer "'+selected+'" ?')) return;
-    localStorage.removeItem('crapka_save_'+selected);
-    setStatus('🗑 Supprimé: '+selected);
-    closeModal();
-    setTimeout(loadSaveModal, 50);
-  };
-  cancelBtn.onclick=closeModal;
-
-  btnsEl.appendChild(loadBtn);
-  btnsEl.appendChild(delBtn);
-  btnsEl.appendChild(cancelBtn);
-  document.getElementById('movl').classList.add('on');
+  inp.click();
 }
+
+// loadSaveModal remplacé par loadFromFile (voir plus haut)
 
 function _buildUndoSnap(){
   if(!G) return null;
@@ -1586,128 +1551,6 @@ function _sSources(g,pidx,visibleOnly){
   return srcs;
 }
 
-// Règle unique pour le roi : ne jouer un roi sur pile ci que si
-// la crapette peut se poser directement après (crNum === kingWillBe+1).
-// La condition "vider la main" est trop complexe à évaluer en 1 coup → supprimée.
-function _kingPlayable(g,ui,pidx,ci,visibleOnly){
-  const p=g.players[pidx];
-  const crT=p.crapette.length?p.crapette[p.crapette.length-1]:null;
-  const crNum=crT?crT.num:0;
-  const tNum=_sTopNum(g,ui,ci);
-  const kingWillBe=tNum+1;
-
-  if(!visibleOnly){
-    const kings=p.hand.filter(hc=>hc.num===13).length;
-    const nonKings=p.hand.filter(hc=>hc.num!==13);
-
-    // Condition 3 : main = que des rois → chaîne → dame → main vide
-    if(kings>=1&&nonKings.length===0){
-      let val=kingWillBe;
-      let roisRestants=kings-1;
-      while(roisRestants>0&&val<13){val++;roisRestants--;}
-      if(val>=12) return true;
-      if(val<12) return true;
-    }
-
-    // Condition 4 : simulation séquence complète avec cartes en main (sans piocher)
-    // Tester si jouer ce roi sur ci mène à poser la crapette
-    if(_kingLeadsToCrapette(g,ui,pidx,ci)) return true;
-  }
-
-  if(kingWillBe>=12) return false;
-  const nextNeeded=kingWillBe+1;
-  if(nextNeeded>12) return false;
-
-  // Condition 1 : crapette immédiatement après
-  if(crNum===nextNeeded) return true;
-
-  if(!visibleOnly){
-    const nonKings2=p.hand.filter(hc=>hc.num!==13);
-    // Condition 2 : roi + carte nextNeeded = main vide après
-    const hasNext=nonKings2.some(hc=>hc.num===nextNeeded);
-    const othersAfter=nonKings2.filter(hc=>hc.num!==nextNeeded);
-    if(hasNext&&othersAfter.length===0) return true;
-  }
-  return false;
-}
-
-// Simuler la séquence de coups depuis la main courante (sans piocher)
-// pour voir si jouer un roi sur ci mène à poser la crapette
-function _kingLeadsToCrapette(g,ui,pidx,ci){
-  // Cloner l'état minimal
-  const hand=[...g.players[pidx].hand];
-  const crapette=[...g.players[pidx].crapette];
-  const piles=g.commons.map(p=>[...p]);
-  const kv=[...ui.pileKingVal];
-  const kp=[...ui.pileKingPending];
-
-  function topNum(c){
-    const pile=piles[c];
-    if(!pile.length) return 0;
-    const t=pile[pile.length-1];
-    if(t.num===13) return kv[c]!==null?kv[c]:13;
-    return t.num;
-  }
-  function canPlay(card,c){
-    const pile=piles[c];
-    if(!pile.length) return card.num===1;
-    const tn=topNum(c);
-    if(tn===12) return false;
-    if(kp[c]) return card.num!==1&&card.num!==13;
-    if(card.num===13) return tn<12&&tn>0;
-    return card.num===tn+1;
-  }
-  function playOn(card,c){
-    // Retirer de hand ou crapette
-    const hi=hand.findIndex(hc=>hc.uid===card.uid);
-    if(hi>=0) hand.splice(hi,1);
-    else if(crapette.length&&crapette[crapette.length-1].uid===card.uid) crapette.pop();
-    // Poser sur la pile
-    piles[c].push(card);
-    if(card.num===13){
-      if(piles[c].length===1){kp[c]=true;kv[c]=null;}
-      else{
-        const below=piles[c][piles[c].length-2];
-        const bv=below.num===13?(kv[c]!==null?kv[c]:13):below.num;
-        const nv=bv+1;
-        kp[c]=false;
-        if(nv>=12){piles[c]=[];kv[c]=null;kp[c]=false;}
-        else kv[c]=nv;
-      }
-    } else if(kp[c]){kp[c]=false;kv[c]=card.num-1;}
-    else{kv[c]=null;kp[c]=false;}
-    // Dame → écart
-    if(topNum(c)===12){piles[c]=[];kv[c]=null;kp[c]=false;}
-  }
-
-  // Jouer le roi sur ci d'abord
-  const king=hand.find(hc=>hc.num===13);
-  if(!king) return false;
-  playOn(king,ci);
-
-  // Simuler coups gloutons (max 20 itérations)
-  let moved=true,iters=0;
-  while(moved&&iters<20){
-    moved=false;iters++;
-    // Vider dames
-    for(let c=0;c<4;c++){if(topNum(c)===12){piles[c]=[];kv[c]=null;kp[c]=false;moved=true;break;}}
-    if(moved) continue;
-    // Jouer crapette
-    if(crapette.length){
-      const cr=crapette[crapette.length-1];
-      for(let c=0;c<4;c++){if(canPlay(cr,c)){playOn(cr,c);moved=true;break;}}
-      if(moved) continue;
-    }
-    // Jouer main
-    for(const hc of [...hand]){
-      for(let c=0;c<4;c++){if(canPlay(hc,c)){playOn(hc,c);moved=true;break;}}
-      if(moved) break;
-    }
-  }
-  // La crapette a-t-elle progressé (ou été posée) ?
-  return crapette.length<g.players[pidx].crapette.length;
-}
-
 // Vérifie si une carte de défausse adverse était jouable au début du tour IA
 // en utilisant les snapshots stockés dans g
 function _sWasPlayable(g,defIdx,oppIdx){
@@ -1782,17 +1625,6 @@ function _sLegal(g,ui,pidx,visibleOnly){
     for(let ci=0;ci<4;ci++){
       if(!g.commons[ci].length) continue;
       if(_sCanOnCommon(g,ui,card,ci)){
-        // Roi : seulement si utile selon règle centralisée
-        if(card.num===13){
-          if(!_kingPlayable(g,ui,pidx,ci,visibleOnly)) continue;
-          // Si piles vides/pending existent et chaîne incomplète → init d'abord
-          const hasEmpty=g.commons.some((_p,ci2)=>g.commons[ci2].length===0||ui.pileKingPending[ci2]);
-          const kings=p.hand.filter(hc=>hc.num===13).length;
-          const finalVal=_sTopNum(g,ui,ci)+kings;
-          if(hasEmpty&&finalVal<12) continue;
-          // Si D en main est DÉJÀ jouable sur cette pile → bloquer R (D joue d'abord)
-          if(!visibleOnly&&p.hand.some(hc=>hc.num===12&&_sCanOnCommon(g,ui,hc,ci))) continue;
-        }
         moves.push({type:'play',card,src,ci});
       }
     }
@@ -1816,14 +1648,13 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Fin de tour : défausser une carte de la main (pas crapette)
-  for(let di=0;di<4;di++){
-    const defTop=p.defausse[di].length?p.defausse[di][p.defausse[di].length-1]:null;
-    if(visibleOnly) continue; // l'adversaire en simulation ne "choisit" pas sa défausse
-    for(const c of p.hand){
-      if(!defTop||defTop.num!==1||c.num===1){
-        moves.push({type:'end',card:c,src:{type:'hand'},di});
-        break; // une option de défausse suffit par pile
+  // Fin de tour : défausser une carte de la main (pas crapette) — toutes les combinaisons
+  if(!visibleOnly){
+    for(let di=0;di<4;di++){
+      const defTop=p.defausse[di].length?p.defausse[di][p.defausse[di].length-1]:null;
+      for(const c of p.hand){
+        if(!defTop||defTop.num!==1||c.num===1)
+          moves.push({type:'end',card:c,src:{type:'hand'},di});
       }
     }
   }
@@ -1905,172 +1736,203 @@ function _eval(g,ui,aiIdx){
   const defVals=new Set(ai.defausse.map(d=>d.length?d[d.length-1].num:null).filter(n=>n!==null));
   sc+=defVals.size*3; // plus de valeurs différentes = plus de flexibilité
 
-  // (malus crapette adverse déjà compté ci-dessus)
+  // ── Critères supplémentaires ────────────────────────────────────────────
+
+  // 1. Bonus min(distance pile → crapette) : récompense la pile la plus proche
+  if(crT){
+    const crNum=crT.num;
+    const target=(crNum-1+12)%12||12;
+    let minDist=12;
+    for(let ci=0;ci<4;ci++){
+      const tn=_sTopNum(g,ui,ci);
+      if(tn>0&&tn<12) minDist=Math.min(minDist,(target-tn+12)%12);
+    }
+    if(minDist<12) sc+=Math.max(0,(6-minDist)*4); // dist=0→+24, dist=3→+12, dist=6+→0
+  }
+
+  // 2+3. Taille de la main (plus petite = mieux) + rois si main non vidée et crapette injouable
+  const crPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
+  const handSize=ai.hand.length;
+  sc+=Math.max(0,5-handSize)*4; // 0 cartes→+20, 5 cartes→0
+  if(!crPlayable&&handSize>0){
+    // Situation bloquée : garder des rois en main > garder d'autres cartes (polyvalents)
+    sc+=ai.hand.filter(c=>c.num===13).length*10;
+  }
+
+  // 4. Main résiduelle : pas de doublon de la crapette (prioritaire) + pas de doublons de valeur
+  if(crT&&handSize>0){
+    const crNum=crT.num;
+    const handNums=ai.hand.map(c=>c.num);
+    if(!handNums.includes(crNum)) sc+=8; // pas de carte de même valeur que la crapette en main
+    if(new Set(handNums).size===handNums.length) sc+=5; // pas de doublons de valeur
+  }
+
+  // 5. Main résiduelle comporte des cartes précédant la crapette (ex. V ou D précède As)
+  if(crT&&handSize>0){
+    const crNum=crT.num;
+    const prev1=crNum===1?12:crNum-1; // carte juste avant crT (cyclique)
+    const prev2=crNum<=2?crNum+10:crNum-2; // deux avant
+    const handNums=ai.hand.map(c=>c.num);
+    if(handNums.includes(prev1)) sc+=8;
+    if(handNums.includes(prev2)) sc+=4;
+  }
 
   return sc;
 }
 
 // ══════════════════════════════════════════════
-// MINIMAX
+// FORCE BRUTE
 // ══════════════════════════════════════════════
-let _mmNodes=0;
-const _MM_MAX_NODES=3000;
+const BF_MAX_SEQUENCES=5000;
 
-// Priorité d'un coup pour le tri dans minimax
-// Clé stable unique pour tie-break dans le tri des moves
-function _mvKey(mv){
-  const ci=mv.ci!==undefined?mv.ci:0;
-  const uid=mv.card?mv.card.uid:0;
-  const srcType=mv.src?mv.src.type:'';
-  const srcIdx=mv.src&&mv.src.index!==undefined?mv.src.index:0;
-  // Combiner en un entier : ci*100000 + uid*10 + srcIdx
-  return ci*100000 + uid*10 + srcIdx;
+// Formate une valeur de carte sur 1 caractère (10 → T)
+function _fmtCV(card){ return card?( card.value==='10'?'T':card.value ):'?'; }
+
+// Formate la source d'un move
+function _fmtSrc(src){
+  if(!src) return 'Pio';
+  if(src.type==='crapette') return 'Cr';
+  if(src.type==='hand') return 'Ma';
+  if(src.type==='defausse') return 'Df'+(src.index+1);
+  return '?';
 }
 
-function _mvPrio(mv,g,ui,pidx){
-  if(!mv) return 0;
-  if(mv.type==='clear') return 25;
-  if(mv.type==='demand'){
-    const p=g.players[pidx];
-    const crT=p.crapette.length?p.crapette[p.crapette.length-1]:null;
-    const crNum=crT?crT.num:0;
-    const tAfterDemand=mv.card.num;
-    if(crNum>0&&tAfterDemand===crNum-1) return 90;
-    if(crNum>0){const dist=(crNum-1-tAfterDemand+12)%12;if(dist<=3) return 55;}
-    return 20;
-  }
-  if(mv.type==='init') return 5;
-  if(mv.type==='play'){
-    const p=g.players[pidx];
-    const crT=p.crapette.length?p.crapette[p.crapette.length-1]:null;
-    const crNum=crT?crT.num:0;
-    // Crapette non-roi : priorité absolue (toujours jouer la crapette)
-    if(mv.src&&mv.src.type==='crapette'&&mv.card.num!==13) return 100;
-    if(crNum>0&&mv.card.num===crNum-1) return 60;
-    // Bonus source : main > défausse > crapette
-    const srcBonus=mv.src?(mv.src.type==='hand'?3:mv.src.type==='defausse'?0:1):0;
-    if(mv.card.num===12) return 35+srcBonus;
-    if(mv.card.num===13){
-      // Compter tous les rois disponibles (main + crapette si elle est un roi)
-      const kingsInHand=p.hand.filter(hc=>hc.num===13).length;
-      const crT2=p.crapette.length?p.crapette[p.crapette.length-1]:null;
-      const crIsKing=(crT2&&crT2.num===13&&mv.src&&mv.src.type!=='crapette')?1:0;
-      const kings=kingsInHand+crIsKing;
-      const finalVal=_sTopNum(g,ui,mv.ci)+kings+1;
-      // Roi depuis crapette : bonus supplémentaire car vide la crapette
-      const crBonus=(mv.src&&mv.src.type==='crapette')?10:0;
-      // Bonus si une carte visible (main/défausse) peut se poser après le roi
-      // (kingWillBe = valeur du roi = topNum+1, nextNeeded = kingWillBe+1)
-      const kingWillBe=_sTopNum(g,ui,mv.ci)+1;
-      const nextNeeded=kingWillBe+1;
-      const hasNextVisible=nextNeeded<=12&&(
-        p.hand.some(hc=>hc.num===nextNeeded)||
-        p.defausse.some(d=>{const t=d.length?d[d.length-1]:null;return t&&t.num===nextNeeded;})
-      );
-      const nextBonus=hasNextVisible?15:0;
-      if(finalVal>=12) return 80+crBonus+nextBonus;
-      if(finalVal>=10) return 40+crBonus+nextBonus;
-      return 5+crBonus+nextBonus;
-    }
-    return 10;
-  }
-  return 0;
+// Formate un move en notation compacte (* = découverte de carte)
+function _fmtMove(mv){
+  let s;
+  if(mv.type==='play')   s=_fmtCV(mv.card)+'('+_fmtSrc(mv.src)+')->P'+(mv.ci+1);
+  else if(mv.type==='clear')  s='P'+(mv.ci+1)+'->Rcy';
+  else if(mv.type==='init')   s=mv.src?_fmtCV(mv.card)+'('+_fmtSrc(mv.src)+')->P'+(mv.ci+1):'Pio->P'+(mv.ci+1);
+  else if(mv.type==='demand') s=_fmtCV(mv.card)+'(Dm'+(mv.defIdx+1)+')->P'+(mv.ci+1);
+  else if(mv.type==='end')    s=_fmtCV(mv.card)+'(Ma)->Df'+(mv.di+1);
+  else if(mv.type==='redraw'||mv.type==='pass') s='Pio->Ma';
+  else s=mv.type;
+  // Marquer les coups découverte (crapette ou init pioche)
+  if((mv.type==='play'&&mv.src&&mv.src.type==='crapette')||
+     (mv.type==='init'&&!mv.card)) s+='*';
+  return s;
 }
 
-function _miniMaxBestSequence(depth){
-  _mmNodes=0;
+// Point d'entrée : construit toutes les séquences possibles et retourne les moves
+// de la meilleure séquence terminée.
+function _bruteForce(){
   const aiIdx=UI.aiIdx;
-  const {g:sg,ui:sui}=_cloneState(G,UI);
+  const {g:g0,ui:ui0}=_cloneState(G,UI);
 
-  if(_debugMode){
-    // Évaluer chaque branche de premier niveau et logguer
-    const lm=_sLegal(sg,sui,aiIdx,false).filter(m=>m.type!=='end');
-    const sorted=lm.slice().sort((a,b)=>{
-      const dp=_mvPrio(b,sg,sui,aiIdx)-_mvPrio(a,sg,sui,aiIdx);
-      return dp!==0?dp:_mvKey(a)-_mvKey(b);
-    }).slice(0,8);
-    window._dbgKingLog=[];
-    for(const mv of sorted){
-      const {g:ng,ui:nui}=_sApply(sg,sui,aiIdx,mv);
-      const res=_mmTurn(ng,nui,aiIdx,depth-1,[mv],true,-Infinity,Infinity);
-      const seq=res.moves.map(m=>{
-        const card=m.card?m.card.value+m.card.suit:'-';
-        const src=m.src?(m.src.type==='hand'?'M':m.src.type==='crapette'?'C':'D'+((m.src.index||0)+1)):'-';
-        return card+'['+src+']'+(m.ci!==undefined?'→P'+(m.ci+1):m.di!==undefined?'→d'+(m.di+1):'');
-      }).join(', ');
-      window._dbgKingLog.push(seq+' | score='+res.score);
-    }
-    // Maintenant faire la vraie recherche complète
-    _mmNodes=0;
+  let sequences=[{
+    id:'0',
+    state:{g:g0,ui:ui0},
+    moves:[],
+    terminated:false,
+    score:_eval(g0,ui0,aiIdx),
+    extraBonus:0,
+    crapettePlayed:false   // true après la première pose de crapette (suivante invisible)
+  }];
+
+  while(true){
+    const idx=sequences.findIndex(s=>!s.terminated);
+    if(idx===-1||sequences.length>=BF_MAX_SEQUENCES) break;
+    const active=sequences[idx];
+    const expanded=_bfExpand(active,aiIdx);
+    sequences.splice(idx,1);      // retirer la séquence active
+    sequences.push(...expanded);  // ajouter les enfants à la fin (BFS)
   }
 
-  if(_debugMode){
-    const lm=_sLegal(sg,sui,aiIdx,false);
-    window._dbgDemandLog=window._dbgDemandLog||[];
-    window._dbgDemandLog.push('Legal('+lm.length+'): '+lm.slice(0,6).map(m=>m.type+(m.card?m.card.value+m.card.suit:'')+(m.ci!==undefined?'P'+(m.ci+1):'')+(m.defIdx!==undefined?'D'+(m.defIdx+1):'')).join('|'));
-    // Sources IA
-    const srcs=_sSources(sg,aiIdx,false);
-    window._dbgDemandLog.push('Sources: '+srcs.map(s=>s.card.value+s.card.suit+'['+s.src.type[0]+']').join(' '));
-    window._dbgDemandLog.push('Piles: '+sg.commons.map((p,i)=>'P'+(i+1)+'='+(p.length?p[p.length-1].value+p[p.length-1].suit:'_')).join(' '));
+  // Meilleure séquence terminée (tie-break : plus courte si scores égaux)
+  let best=null;
+  for(const seq of sequences){
+    if(!seq.terminated) continue;
+    if(best===null||seq.score>best.score||(seq.score===best.score&&seq.moves.length<best.moves.length))
+      best=seq;
   }
-  const res=_mmTurn(sg,sui,aiIdx,depth,[],true,-Infinity,Infinity);
-  return res.moves||[];
+
+  // Stocker les séquences pour le panel debug pas-à-pas
+  if(_debugMode){
+    const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
+    const bestId=best?best.id:null;
+    window._dbgBFSequences=terminated.map(s=>({
+      score: s.score,
+      moves: s.moves,
+      isBest: s.id===bestId
+    }));
+  }
+
+  return best?best.moves:[];
 }
 
-function _mmTurn(g,ui,aiIdx,depth,acc,isAI,alpha,beta){
-  if(_mmNodes>_MM_MAX_NODES) return {score:_eval(g,ui,aiIdx),moves:acc};
-  if(g.phase==='game-over'||depth<=0) return {score:_eval(g,ui,aiIdx),moves:acc};
 
+// Supprime les coups dupliqués de la liste :
+// - main : deux cartes de même valeur sur la même pile → résultats identiques (règles num-only)
+// - défausse : poser sur deux piles vides différentes → résultat identique
+function _bfDedup(moves,p){
+  const seen=new Set();
+  const out=[];
+  for(const mv of moves){
+    let key;
+    if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
+      key='ph:'+mv.card.num+':'+mv.ci;
+    } else if(mv.type==='end'){
+      const empty=p.defausse[mv.di].length===0;
+      key='end:'+mv.card.num+':'+(empty?'E':mv.di);
+    } else {
+      out.push(mv); continue;
+    }
+    if(!seen.has(key)){seen.add(key);out.push(mv);}
+  }
+  return out;
+}
+
+// Développe une séquence active en autant de séquences qu'il y a de coups légaux.
+function _bfExpand(seq,aiIdx){
+  const {g,ui}=seq.state;
   const pidx=g.cur;
-  // Cartes visibles seulement pour l'adversaire
-  const visOnly=(pidx!==aiIdx);
-  const lm=_sLegal(g,ui,pidx,visOnly);
-  if(!lm.length) return {score:_eval(g,ui,aiIdx),moves:acc};
+  const p=g.players[pidx];
+  let lm=_sLegal(g,ui,pidx,false);
 
-  // Séparer play/clear/init (en cours de tour) de end (fin de tour)
-  const playing=lm.filter(m=>m.type!=='end');
-  const ending=lm.filter(m=>m.type==='end');
+  // Après une pose de crapette, la carte suivante est invisible → exclure les coups crapette
+  if(seq.crapettePlayed)
+    lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
-  let best=isAI?{score:-Infinity,moves:acc}:{score:Infinity,moves:acc};
+  // Aucun coup légal
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)}];
 
-  const consider=(mv,isContinue)=>{
-    if(_mmNodes>_MM_MAX_NODES) return;
-    _mmNodes++;
+  // Main vide sans coup 'end' possible → le tour se terminera par redraw
+  if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)}];
+
+  const deduped=_bfDedup(_bfSortMoves(lm),p);
+  return deduped.map((mv,i)=>{
+    const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
+    // Tirage pioche : carte inconnue → termine la séquence, score l'état AVANT tirage
+    const isPiocheDiscovery=(mv.type==='init'&&!mv.card)||mv.type==='redraw';
     const {g:ng,ui:nui}=_sApply(g,ui,pidx,mv);
-    let res;
-    if(mv.type==='end'){
-      // Fin de tour = frontière de piochage → évaluer immédiatement
-      const sc=_eval(ng,nui,aiIdx);
-      res={score:sc,moves:isContinue?[...acc,mv]:acc};
-    } else {
-      // Même joueur, continuer le tour (depth ne change pas dans le même tour)
-      res=_mmTurn(ng,nui,aiIdx,depth,[...acc,mv],isAI,alpha,beta);
-    }
-    if(isAI){
-      if(res.score>best.score) best=res;
-      alpha=Math.max(alpha,best.score);
-    } else {
-      if(res.score<best.score) best=res;
-      beta=Math.min(beta,best.score);
-    }
-    return alpha>=beta; // pruning
-  };
-
-  // Trier et tronquer les coups (priorités) avec tie-break stable
-  const sorted=playing.slice().sort((a,b)=>{
-    const dp=_mvPrio(b,g,ui,g.cur)-_mvPrio(a,g,ui,g.cur);
-    if(dp!==0) return dp;
-    return _mvKey(a)-_mvKey(b);
+    // Bonus cumulés : main→pile (+15), crapette→pile (+50, priorité forte sur victoire)
+    const handPlayBonus=(mv.type==='play'&&mv.src&&mv.src.type==='hand')?15:0;
+    const crapetteBonus=isCrapettePlay?50:0;
+    const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus;
+    const willTerminate=mv.type==='end'||isPiocheDiscovery;
+    const sc=isPiocheDiscovery?_eval(g,ui,aiIdx):_eval(ng,nui,aiIdx);
+    return{
+      id:seq.id+'.'+i,
+      state:{g:ng,ui:nui},
+      moves:[...seq.moves,mv],
+      terminated:willTerminate,
+      score:willTerminate?sc+newBonus:sc,
+      extraBonus:newBonus,
+      crapettePlayed:seq.crapettePlayed||isCrapettePlay
+    };
   });
+}
 
-  const top=sorted.slice(0,isAI?4:3); // branching factor réduit pour éviter explosion
-  for(const mv of top){ if(consider(mv,true)) break; }
-
-  // Option de terminer le tour
-  for(const mv of ending.slice(0,2)){ if(consider(mv,true)) break; }
-
-  if(best.score===(isAI?-Infinity:Infinity)) return {score:_eval(g,ui,aiIdx),moves:acc};
-  return best;
+// Trie les coups par catégorie de priorité :
+// crapette → init/clear → main+défausse vers piles → demande → défausse (fin de tour)
+function _bfSortMoves(moves){
+  const crapette=moves.filter(m=>m.type==='play'&&m.src?.type==='crapette');
+  const init    =moves.filter(m=>m.type==='init'||m.type==='clear');
+  const piles   =moves.filter(m=>m.type==='play'&&m.src?.type!=='crapette');
+  const demand  =moves.filter(m=>m.type==='demand');
+  const end     =moves.filter(m=>m.type==='end');
+  return[...crapette,...init,...piles,...demand,...end];
 }
 
 // Appliquer un move à G/UI globaux
@@ -2108,133 +1970,12 @@ function _applyMoveToState(g,ui,mv){
   }
 }
 
-// ══════════════════════════════════════════════
-// GREEDY (niveau 1)
-// ══════════════════════════════════════════════
-function _aiGreedyMove(){
-  const p=G.players[G.cur];
-  for(let ci=0;ci<4;ci++){
-    if(topNum(ci)===12){
-      _q({type:'clear',ci});_applyMoveToState(G,UI,{type:'clear',ci});return true;
-    }
-  }
-  for(let ci=0;ci<4;ci++){
-    if(UI.pileKingPending[ci]){
-      const crTop=peek(p.crapette);const crNum=crTop?crTop.num:0;
-      const cards=_aiAllCards();
-      const playable=cards.filter(({c})=>_sCanOnCommon(G,UI,c,ci));
-      if(playable.length){
-        playable.sort((a,b)=>Math.abs(a.c.num-crNum-1)-Math.abs(b.c.num-crNum-1));
-        const best=playable[0];
-        UI.pileKingPending[ci]=false;UI.pileKingVal[ci]=best.c.num-1;
-        _q({type:'play',card:best.c,src:best.src,ci});
-        _applyMoveToState(G,UI,{type:'play',card:best.c,src:best.src,ci});
-      } else {
-        _q({type:'clear',ci});_applyMoveToState(G,UI,{type:'clear',ci});
-      }
-      return true;
-    }
-  }
-  for(let ci=0;ci<4;ci++){
-    if(!G.commons[ci].length){
-      const ace=_findAce();
-      if(ace){_q({type:'init',ci,card:ace.card,src:ace.src});_applyMoveToState(G,UI,{type:'init',ci,card:ace.card,src:ace.src});}
-      else if(G.pioche.length>0||G.futurePioche.length>0){
-        // Laisser _applyMoveToState gérer le piochage via mv.card=null
-        _q({type:'init',ci,card:null,src:null});
-        _applyMoveToState(G,UI,{type:'init',ci,card:null,src:null});
-      }
-      else continue;
-      return true;
-    }
-  }
-  const crTop=peek(p.crapette);
-  if(crTop){
-    // Choisir la meilleure pile pour la crapette (pas forcément la première)
-    const crMoves=[];
-    for(let ci=0;ci<4;ci++){
-      if(canOnCommon(crTop,ci)){
-        crMoves.push({type:'play',card:crTop,src:{type:'crapette'},ci});
-      }
-    }
-    if(crMoves.length){
-      // Trier par _mvPrio pour choisir la meilleure pile
-      crMoves.sort((a,b)=>{
-        const pa=_mvPrio(a,G,UI,G.cur),pb=_mvPrio(b,G,UI,G.cur);
-        if(pa!==pb) return pb-pa;
-        // Tie-break : préférer la pile avec topNum le plus élevé (plus avancée)
-        return topNum(b.ci)-topNum(a.ci);
-      });
-      const best=crMoves[0];
-      _q(best);_applyMoveToState(G,UI,best);return true;
-    }
-  }
-  // Jouer d'abord les non-rois jouables, puis les rois utiles
-  const handSorted=_aiSortHand(p.hand).sort((a,b)=>{
-    if(a.num===13&&b.num!==13) return 1;
-    if(a.num!==13&&b.num===13) return -1;
-    return 0;
-  });
-  for(const card of handSorted) for(let ci=0;ci<4;ci++) if(canOnCommon(card,ci)){if(card.num===13&&!_kingIsUseful(ci))continue;_q({type:'play',card,src:{type:'hand'},ci});_applyMoveToState(G,UI,{type:'play',card,src:{type:'hand'},ci});return true;}
-  for(let di=0;di<4;di++){
-    const dt=peek(p.defausse[di]);if(!dt)continue;
-    for(let ci=0;ci<4;ci++){
-      if(!canOnCommon(dt,ci)) continue;
-      if(dt.num===13&&!_kingIsUseful(ci)) continue;
-      // Préférer jouer depuis la main si la même valeur est disponible
-      // sauf si jouer depuis la défausse révèle une carte précieuse (dans les 2 premières)
-      const sameInHand=p.hand.some(h=>h.num===dt.num&&canOnCommon(h,ci));
-      if(sameInHand){
-        // Vérifier si la carte sous dt est précieuse et non disponible ailleurs
-        const pile=p.defausse[di];
-        const below=pile.length>1?pile[pile.length-2]:null;
-        const crTop=peek(p.crapette);const crNum=crTop?crTop.num:0;
-        const belowPrecious=below&&crNum>0&&(()=>{
-          const target=(crNum-1+12)%12||12;
-          const dist=(target-below.num+12)%12;
-          return dist<=3;
-        })();
-        const belowAvailableElsewhere=!below||p.hand.some(h=>h.num===below.num)||
-          p.defausse.some((d2,j)=>j!==di&&d2.some(x=>x.num===below.num));
-        if(!belowPrecious||belowAvailableElsewhere) continue; // jouer depuis main à la place
-      }
-      _q({type:'play',card:dt,src:{type:'defausse',index:di},ci});
-      _applyMoveToState(G,UI,{type:'play',card:dt,src:{type:'defausse',index:di},ci});
-      return true;
-    }
-  }
-  return false;
-}
-
-function _kingIsUseful(ci){
-  // Délègue à la règle centralisée
-  return _kingPlayable(G,UI,G.cur,ci,false);
-}
-
-function _aiAllCards(){
-  const p=G.players[G.cur];
-  return [
-    ...p.hand.map(c=>({c,src:{type:'hand'}})),
-    peek(p.crapette)?{c:peek(p.crapette),src:{type:'crapette'}}:null,
-    ...p.defausse.map((pile,i)=>peek(pile)?{c:peek(pile),src:{type:'defausse',index:i}}:null)
-  ].filter(Boolean);
-}
-
 function _findAce(){
   const p=G.players[G.cur];
   const ct=peek(p.crapette);if(ct&&ct.num===1)return{card:ct,src:{type:'crapette'}};
   for(let i=0;i<4;i++){const t=peek(p.defausse[i]);if(t&&t.num===1)return{card:t,src:{type:'defausse',index:i}};}
   const h=p.hand.find(c=>c.num===1);if(h)return{card:h,src:{type:'hand'}};
   return null;
-}
-
-function _aiSortHand(hand){
-  const crTop=peek(G.players[G.cur].crapette);const crNum=crTop?crTop.num:0;
-  return [...hand].sort((a,b)=>{
-    const da=Math.abs(a.num-crNum),db=Math.abs(b.num-crNum);
-    if(da!==db) return da-db;
-    return a.uid-b.uid; // tie-break stable par uid
-  });
 }
 
 function _aiDiscard(){
@@ -2293,24 +2034,20 @@ function _aiDiscard(){
       }
     }
     if(moved) continue;
-    // Jouer cartes jouables depuis la main (rois utiles inclus) — meilleure pile
+    // Jouer cartes jouables depuis la main — meilleure pile (non-rois d'abord)
     {
       const allMoves=[];
       for(const card of p.hand){
-        if(card.num===13){
-          for(let ci=0;ci<4;ci++)
-            if(canOnCommon(card,ci)&&_kingIsUseful(ci))
-              allMoves.push({type:'play',card,src:{type:'hand'},ci});
-          continue;
-        }
         for(let ci=0;ci<4;ci++)
           if(canOnCommon(card,ci))
             allMoves.push({type:'play',card,src:{type:'hand'},ci});
       }
       if(allMoves.length){
+        // Non-rois d'abord, puis rois ; stable par (card.uid, ci)
         allMoves.sort((a,b)=>{
-          const dp=_mvPrio(b,G,UI,G.cur)-_mvPrio(a,G,UI,G.cur);
-          return dp!==0?dp:_mvKey(a)-_mvKey(b);
+          if(a.card.num===13&&b.card.num!==13) return 1;
+          if(a.card.num!==13&&b.card.num===13) return -1;
+          return a.card.uid-b.card.uid||a.ci-b.ci;
         });
         const best=allMoves[0];
         _q(best);_applyMoveToState(G,UI,best);
@@ -2332,9 +2069,6 @@ function _aiDiscard(){
           if(topNum(ci)===12){
             _q({type:'clear',ci});_applyMoveToState(G,UI,{type:'clear',ci});
           }
-          // Rejouer avec la pile nouvellement initialisée
-          let mv2=true,it2=0;
-          while(mv2&&it2<50&&G.phase!=='game-over'){mv2=_aiGreedyMove();it2++;}
         }
         break; // une seule pile à la fois
       }
@@ -2343,20 +2077,6 @@ function _aiDiscard(){
 
   // Les candidats à la défausse = cartes restantes non jouables (hors rois)
   let cands=p.hand.filter(c=>c.num!==13&&!_handCardIsPlayable(c));
-  // Rois : jouer si utile, sinon ne pas défausser (garder pour plus tard)
-  if(!cands.length&&p.hand.length){
-    // Essayer de jouer un roi utile
-    for(const k of [...p.hand].filter(c=>c.num===13)){
-      for(let ci=0;ci<4;ci++){
-        if(canOnCommon(k,ci)&&_kingPlayable(G,UI,G.cur,ci,false)){
-          _q({type:'play',card:k,src:{type:'hand'},ci});
-          _applyMoveToState(G,UI,{type:'play',card:k,src:{type:'hand'},ci});
-          break;
-        }
-      }
-    }
-    cands=p.hand.filter(c=>c.num!==13&&!_handCardIsPlayable(c));
-  }
   if(!cands.length) cands=p.hand.filter(c=>c.num!==13);
   if(!cands.length) cands=[...p.hand];
   let toDiscard=null,src={type:'hand'};
@@ -2732,6 +2452,68 @@ function showBtns(){
 // LOG
 // ══════════════════════════════════════════════
 let _moveCount=0;
+function renderBFSeq(){
+  const panel=document.getElementById('seqlog');
+  const seqs=window._dbgBFSequences;
+  if(!panel) return;
+  panel.innerHTML='';
+  const title=document.createElement('div');
+  title.id='seqlog-title';
+  panel.appendChild(title);
+  if(!seqs||!seqs.length){
+    if(_bfSeqPinned&&_debugMode){
+      title.textContent='Séquences BF — en attente\u2026';
+      panel.classList.add('visible');
+    } else {
+      panel.classList.remove('visible');
+    }
+    return;
+  }
+  title.textContent='Séquences BF ('+seqs.length+')';
+  let bestEl=null;
+  for(const s of seqs){
+    const e=document.createElement('div');
+    e.className='mle '+(s.isBest?'bf-best':'bf-other');
+    // Score
+    let html=s.score.toFixed(1)+'#';
+    if(!s.moves.length){
+      html+='(fin)';
+    } else {
+      html+=s.moves.map(mv=>{
+        const txt=_fmtMove(mv);
+        const isCr=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
+        const isDisco=isCr||(mv.type==='init'&&!mv.card)||(mv.type==='redraw');
+        if(isCr)    return '<b style="color:#ff4444">'+txt+'</b>';
+        if(isDisco) return '<b>'+txt+'</b>';
+        return txt;
+      }).join('|');
+    }
+    e.innerHTML=html;
+    panel.appendChild(e);
+    if(s.isBest) bestEl=e;
+  }
+  panel.classList.add('visible');
+  if(bestEl) bestEl.scrollIntoView({block:'nearest'});
+}
+
+function hideBFSeq(){
+  window._dbgBFSequences=null;
+  if(_bfSeqPinned&&_debugMode){
+    // Panel épinglé en debug : on garde la visibilité mais on vide les lignes
+    const panel=document.getElementById('seqlog');
+    if(!panel) return;
+    panel.innerHTML='';
+    const t=document.createElement('div');
+    t.id='seqlog-title';
+    t.textContent='Séquences BF — en attente\u2026';
+    panel.appendChild(t);
+    panel.classList.add('visible');
+    return;
+  }
+  const panel=document.getElementById('seqlog');
+  if(panel){panel.classList.remove('visible');panel.innerHTML='<div id="seqlog-title">Séquences BF</div>';}
+}
+
 function addMoveLog(msg,cls='sys'){
   if(window._simulating) return;
   const el=document.getElementById('movelog');
@@ -2751,7 +2533,16 @@ function toggleDebug(){
   document.getElementById('btn-debug').textContent=_debugMode?'🐛ON':'🐛';
   // Afficher/masquer les contrôles pas-à-pas
   document.getElementById('step-controls').style.display=_debugMode?'flex':'none';
-  if(!_debugMode){_stepMode=false;_updateStepUI();}
+  if(_debugMode){
+    // Afficher le panel immédiatement si épinglé
+    if(_bfSeqPinned) hideBFSeq(); // affiche "en attente" et rend visible
+  } else {
+    _stepMode=false;
+    window._dbgBFSequences=null;
+    const panel=document.getElementById('seqlog');
+    if(panel){panel.classList.remove('visible');panel.innerHTML='<div id="seqlog-title">Séquences BF</div>';}
+  }
+  _updateStepUI();
   render();
   setStatus(_debugMode?'Mode debug activé':'Mode debug désactivé');
 }
@@ -2765,6 +2556,24 @@ function _updateStepUI(){
   const showBtn=_debugMode&&(_stepResolve||(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase!=='game-over'));
   btn.style.display=showBtn?'inline-block':'none';
   btn.textContent=_stepResolve?'▶':'▶ IA';
+  // Bouton toggle séquences : visible dès que le mode debug est actif
+  const tbtn=document.getElementById('btn-seq-toggle');
+  if(tbtn){
+    tbtn.style.display=_debugMode?'inline-block':'none';
+    tbtn.style.background=_bfSeqPinned?'var(--green)':'var(--bg3)';
+  }
+}
+
+function toggleBFSeqPin(){
+  _bfSeqPinned=!_bfSeqPinned;
+  _updateStepUI();
+  if(_bfSeqPinned){
+    // Ré-afficher : données fraîches ou "en attente"
+    if(window._dbgBFSequences) renderBFSeq(); else hideBFSeq();
+  } else {
+    const panel=document.getElementById('seqlog');
+    if(panel){panel.classList.remove('visible');panel.innerHTML='<div id="seqlog-title">Séquences BF</div>';}
+  }
 }
 
 function toggleStepMode(){
