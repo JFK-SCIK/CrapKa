@@ -183,10 +183,12 @@ L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_A
 | Pas de doublon crapette en main | +8 |
 | Pas de doublons de valeur en main | +5 |
 | Cartes précédant la crapette en main | +8/+4 |
+| Piles vides avec pioche dispo | −30/pile |
 
 ### Bonus de séquence (`extraBonus`)
 Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
-- Carte de Main posée sur Pile → +15
+- Carte de Main posée sur Pile activant la crapette → +25
+- Autre carte de Main posée sur Pile → +5
 - Crapette posée sur Pile → +50
 
 ### Choix de la Défausse (`_aiBestDef`)
@@ -204,7 +206,9 @@ Scores pour choisir sur quelle pile Défausse poser la carte :
 - Carte précieuse enfouie (non disponible ailleurs) : malus décroissant
 
 ### Priorité des coups dans BF (`_bfSortMoves`)
-crapette → init/clear → main+défausse vers piles → demande → défausse (fin de tour)
+crapette → init/clear → piles_activant_crapette → autres_piles → demande → défausse (fin de tour)
+
+Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette jouable dans l'état résultant passent avant les autres (nécessite un `_sApply` par coup candidat).
 
 ### Sauvegardes / Undo
 - `saveUndo()` / `_buildUndoSnap()` / `_restoreFromSnap(s)` : undo complet
@@ -236,10 +240,10 @@ crapette → init/clear → main+défausse vers piles → demande → défausse 
 
 | # | Statut | Description |
 |---|--------|-------------|
-| B1 | À faire | **Double demande + mauvaise animation** — `_sLegal` génère un 2ème move `demand` sur la carte sous le sommet après que la 1ère a été appliquée. Fix : vérifier que l'UID du sommet actuel correspond au snap avant de générer `demand`. Animation : utiliser `[data-def-top]` au lieu de `[data-def-slot] .card`. |
+| B1 | ✅ fait | **Double demande + mauvaise animation** — `_sLegal` vérifie que l'UID du sommet défausse adverse correspond au snap avant de générer `demand` → plus de double demande. Animation demand : `[data-def-top]` au lieu de `[data-def-slot] .card`. |
 | B2 | ✅ fait | **Rois hors moves `end` (BF)** — Les Rois ne peuvent pas être défaussés en fin de séquence BF. Filtre `c.num !== 13` dans `_sLegal` pour les moves `end`. |
-| B3 | À faire | **Coup inutile avant crapette** — un coup main→pile sans lien avec la crapette est joué avant la chaîne crapette car son extraBonus +15 fait monter le score. Fix : réduire extraBonus main→pile de +15 à +5, ou ne l'accorder que si le coup active la crapette dans l'état résultant. |
-| B4 | À faire | **Défausse sans retourner pile vide** — Ne jamais défausser si une pile est vide et la pioche dispo, sauf exception stratégique (crapette ≤ 3, pas d'As, etc.). Renforcer la logique existante dans `_aiDiscard`. |
+| B3 | ✅ fait | **Coup inutile avant crapette** — `_bfSortMoves` reçoit l'état et classe les coups de pile en "activent la crapette" (avant) et "autres" (après). `handPlayBonus` passe de +15 flat à +25 (activant) / +5 (autre) → les séquences qui jouent la crapette sans pré-coup inutile dominent. |
+| B4 | ✅ fait | **Défausse sans retourner pile vide** — `_eval` pénalise −30/pile vide quand la pioche est disponible → le BF choisit toujours d'init une pile vide avant de terminer. |
 | B5 | À faire | **Priorités défausse / main résiduelle** — Refonte `_discardPriority` + `_eval` : repiocher main vide avec rois > défausser ; bonus cartes dans la chaîne vers crapette ; malus doublons. |
 
 ### Divers UI/UX (ordre de traitement)

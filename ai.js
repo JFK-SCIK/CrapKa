@@ -157,7 +157,7 @@ function _applyMoveWithAnim(mv,cb){
   } else if(mv.type==='demand'){
     const card=mv.card;
     // Faire clignoter la carte en rouge avant de la bouger
-    const defEl=document.querySelector(`[data-def-slot="${mv.oppIdx}-${mv.defIdx}"] .card`);
+    const defEl=document.querySelector(`[data-def-top="${mv.oppIdx}-${mv.defIdx}"]`);
     const doMove=()=>{
       G.players[mv.oppIdx].defausse[mv.defIdx].pop();
       G.commons[mv.ci].push(card);
@@ -538,6 +538,10 @@ function _sLegal(g,ui,pidx,visibleOnly){
     for(let di=0;di<4;di++){
       const card=opp.defausse[di].length?opp.defausse[di][opp.defausse[di].length-1]:null;
       if(!card) continue;
+      // Vérifier que la carte actuelle est bien celle du snap (pas une sous-jacente après demande appliquée)
+      const snapPile=g.startDefSnap&&g.startDefSnap[di];
+      const snapTop=snapPile&&snapPile.length?snapPile[snapPile.length-1]:null;
+      if(!snapTop||card.uid!==snapTop.uid) continue;
       if(_sWasPlayable(g,di,oppIdx)){
         for(let ci=0;ci<4;ci++){
           if(_sCanOnCommon(g,ui,card,ci)){
@@ -679,6 +683,13 @@ function _eval(g,ui,aiIdx){
     if(handNums.includes(prev2)) sc+=4;
   }
 
+  // Malus fort : piles vides non initialisées quand la pioche est disponible
+  // (règle : on ne défausse jamais en laissant une pile non retournée)
+  if(g.pioche.length>0||g.futurePioche.length>0){
+    const emptyPiles=g.commons.filter(p=>!p.length).length;
+    if(emptyPiles>0) sc-=emptyPiles*30;
+  }
+
   return sc;
 }
 
@@ -808,14 +819,19 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm),p);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
   return deduped.map((mv,i)=>{
     const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
     // Tirage pioche : carte inconnue → termine la séquence, score l'état AVANT tirage
     const isPiocheDiscovery=(mv.type==='init'&&!mv.card)||mv.type==='redraw';
     const {g:ng,ui:nui}=_sApply(g,ui,pidx,mv);
-    // Bonus cumulés : main→pile (+15), crapette→pile (+50, priorité forte sur victoire)
-    const handPlayBonus=(mv.type==='play'&&mv.src&&mv.src.type==='hand')?15:0;
+    // Bonus cumulés : crapette→pile (+50), main→pile activant crapette (+25), autre main→pile (+5)
+    const crTb=!isCrapettePlay&&g.players[aiIdx].crapette.length
+      ?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
+    const crWasPlayable=crTb&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crTb,ci2));
+    const crNowPlayable=crTb&&ng.commons.some((_,ci2)=>_sCanOnCommon(ng,nui,crTb,ci2));
+    const handPlayBonus=(mv.type==='play'&&mv.src&&mv.src.type==='hand')
+      ?((!crWasPlayable&&crNowPlayable)?25:5):0;
     const crapetteBonus=isCrapettePlay?50:0;
     const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
@@ -833,14 +849,25 @@ function _bfExpand(seq,aiIdx){
 }
 
 // Trie les coups par catégorie de priorité :
-// crapette → init/clear → main+défausse vers piles → demande → défausse (fin de tour)
-function _bfSortMoves(moves){
+// crapette → init/clear → piles_activant_crapette → autres_piles → demande → défausse
+// Les coups qui activent directement la crapette sont triés avant les autres coups de pile.
+function _bfSortMoves(moves,g,ui,aiIdx){
+  const crT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
+  const crAlreadyPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
   const crapette=moves.filter(m=>m.type==='play'&&m.src?.type==='crapette');
   const init    =moves.filter(m=>m.type==='init'||m.type==='clear');
-  const piles   =moves.filter(m=>m.type==='play'&&m.src?.type!=='crapette');
-  const demand  =moves.filter(m=>m.type==='demand');
-  const end     =moves.filter(m=>m.type==='end');
-  return[...crapette,...init,...piles,...demand,...end];
+  const nonCrPiles=moves.filter(m=>m.type==='play'&&m.src?.type!=='crapette');
+  let pilesActivating=[],pilesOther=nonCrPiles;
+  if(crT&&!crAlreadyPlayable&&nonCrPiles.length){
+    pilesActivating=nonCrPiles.filter(m=>{
+      const {g:ng,ui:nui}=_sApply(g,ui,g.cur,m);
+      return ng.commons.some((_,ci)=>_sCanOnCommon(ng,nui,crT,ci));
+    });
+    pilesOther=nonCrPiles.filter(m=>!pilesActivating.includes(m));
+  }
+  const demand=moves.filter(m=>m.type==='demand');
+  const end   =moves.filter(m=>m.type==='end');
+  return[...crapette,...init,...pilesActivating,...pilesOther,...demand,...end];
 }
 
 // Appliquer un move à G/UI globaux
