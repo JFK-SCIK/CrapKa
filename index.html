@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CrapKa</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="hdr">
+  <h1>🃏 CrapKa</h1>
+  <div id="speedrow">
+    <span>⚡</span>
+    <input type="range" id="spd" min="0" max="5" step="1" value="3" oninput="setSpeed(this.value)">
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);flex-shrink:0;">
+    <span>🧠</span>
+    <select id="ai-level" style="background:var(--bg3);color:var(--text);border:none;border-radius:4px;padding:2px 4px;font-size:0.62rem;cursor:pointer;">
+      <option value="6" selected>BF</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:5px;">
+    <button class="btn" id="btn-debug" onclick="toggleDebug()" title="Mode debug">🐛</button>
+    <span id="step-controls" style="display:none;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);">
+      <input type="checkbox" id="step-check" onchange="toggleStepMode()" title="Pas-à-pas IA">
+      <label for="step-check" style="cursor:pointer">PàP</label>
+      <button class="btn" id="step-next" onclick="stepOrPlay()" style="display:none;padding:3px 8px;">▶</button>
+      <button class="btn" id="btn-seq-toggle" onclick="toggleBFSeqPin()" style="display:none;padding:3px 6px;" title="Afficher/masquer les séquences BF">≡</button>
+    </span>
+    <button class="btn" id="btn-undo" onclick="undo()" title="Retour arrière">↩</button>
+    <button class="btn" onclick="saveToFile()" title="Sauvegarder (télécharger fichier)">💾</button>
+    <button class="btn" onclick="loadFromFile()" title="Charger une sauvegarde (fichier)">📂</button>
+    <button class="btn" onclick="snapshot()">📋</button>
+    <button class="btn red" onclick="showMenu()">Menu</button>
+  </div>
+</div>
+
+<div id="status">Bienvenue dans CrapKa !</div>
+<div id="main">
+  <div id="game"></div>
+  <div id="resizer"></div>
+  <div id="sidebar">
+    <div id="seqlog">
+      <div id="seqlog-title">Séquences BF</div>
+    </div>
+    <div class="stitle">
+      <span>Coups</span>
+      <button onclick="clearMoveLog()">✕</button>
+    </div>
+    <div id="movelog"></div>
+  </div>
+</div>
+<div id="abar">
+
+</div>
+<div id="movl"><div id="mbox">
+  <h2 id="mtitle"></h2><p id="mbody"></p><div id="mbtns"></div>
+</div></div>
+
+<script src="game.js"></script>
+<script src="ai.js"></script>
+<script src="ui.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
