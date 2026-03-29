@@ -595,7 +595,25 @@ function showModal(title,body,btns){
   document.getElementById('movl').classList.add('on');
 }
 function closeModal(){document.getElementById('movl').classList.remove('on');}
-function showMenu(){closeModal();clearTimeout(_aiTimer);G=null;UI.sel=null;setStatus('Bienvenue !');renderMenu();}
+function showMenu(){
+  closeModal();
+  const ov=document.getElementById('victory-overlay');if(ov)ov.remove();
+  clearTimeout(_aiTimer);G=null;UI.sel=null;setStatus('Bienvenue !');renderMenu();
+}
+function showRules(){
+  document.getElementById('mtitle').textContent='📖 Règles CrapKa';
+  document.getElementById('mbody').innerHTML=
+    '<b>Tour</b> : piocher jusqu\'à 5 cartes, jouer autant que voulu sur les piles communes, puis défausser une carte de la main (fin de tour).<br><br>'+
+    '<b>Piles communes</b> : valeur +1 strictement, pas de condition de couleur. As = 1 (pile vide uniquement). Roi = joker (valeur N+1 sous lui). Dame = pile terminable → recyclage.<br><br>'+
+    '<b>Crapette</b> : 21 cartes face cachée sauf la 1ère. Se joue uniquement sur les piles communes. Vider sa crapette = victoire immédiate.<br><br>'+
+    '<b>Défausse</b> : 4 colonnes. On peut poser une carte de la main sur n\'importe quelle pile sauf as sur as. La défausse marque la fin du tour.<br><br>'+
+    '<b>Demande</b> : pendant son tour, on peut exiger que l\'adversaire joue une carte de sa défausse qui était jouable à la fin de son tour.<br><br>'+
+    '<b>Victoire</b> : le premier joueur à poser sa dernière carte de crapette gagne.<br><br>'+
+    '<i>— Jeu créé par A&amp;S</i>';
+  const el=document.getElementById('mbtns');el.innerHTML='';
+  const btn=document.createElement('button');btn.className='btn';btn.textContent='Fermer';btn.onclick=closeModal;el.appendChild(btn);
+  document.getElementById('movl').classList.add('on');
+}
 
 // ── SNAPSHOT pour debug ──
 function snapshot(){
@@ -629,7 +647,6 @@ function snapshot(){
 // ══════════════════════════════════════════════
 function computeLayout(){
   const root=document.documentElement;
-  const gameEl=document.getElementById('game');
   const sideW=parseInt(getComputedStyle(root).getPropertyValue('--log-w'))||115;
 
   // Espace disponible pour le jeu
@@ -641,21 +658,22 @@ function computeLayout(){
   const gameW=totalW-sideW-5; // 5px resizer
   const gameH=totalH-hdrH-statusH-abarH;
 
-  // Estimer la hauteur nécessaire pour le contenu
-  // Layout : pzone(top) + mid + pzone(bot)
-  // pzone = label(~18px) + prow(ch+8px) + hand(ch+2px) + gaps = ch*2 + 50px
-  // mid = ch + 30px (labels + gaps)
-  // Total estimé = ch*5 + 130px
-  // On résout : ch = (gameH - 130) / 5
-  // Avec contrainte : largeur doit contenir crapette + 4 défausses + main(5 cartes) + gaps
-  // Largeur: crstack(cw+8) + gap + 4*(cw+3) + gap + 5*(cw+3) = 10*cw + 8 + 4*3 + 3 + 5*3 = 10cw + 38
-  // Plus les piles communes: pioche + 4*(cw+5) + recyclage = 6cw + 30
-  // On prend le max du contexte joueur
-  // max_cw_h = (gameH - 130) / 5
-  // max_cw_w = (gameW - 50) / 11  (crapette+4def+5main+gaps)
-  const cwH=Math.floor((gameH-130)/5);
-  const cwW=Math.floor((gameW-60)/11);
-  let cw=Math.max(32,Math.min(62,cwH,cwW));
+  // Taille des cartes déterminée par la hauteur disponible (D3 : le slider ne réduit pas les cartes
+  // tant que le contenu tient horizontalement dans la zone de jeu).
+  // Layout vertical : pzone(top) + mid + pzone(bot)
+  // pzone = label(~18px) + prow(ch+8px) + hand(ch+2px) + gaps ≈ ch*2 + 50px
+  // mid avec piles verticales = 4*ch + 4*gap ≈ 4*ch + 30px
+  // Total estimé = ch*8 + 130px  → ch = (gameH - 130) / 8
+  const cwFromH=Math.floor((gameH-130)/8);
+
+  // Contrainte horizontale minimale : crapette + 4 défausses + main(5) + col mid(1) + gaps
+  // ≈ (1+4+5+1)*cw + 80px = 11*cw + 80px  → cw = (gameW - 80) / 11
+  // Appliquer uniquement si le contenu ne tient pas (slider touche le bord droit du recyclage)
+  const cwFromW=Math.floor((gameW-80)/11);
+
+  // La taille est dictée par la hauteur ; la largeur ne la contraint que si nécessaire
+  let cw=Math.max(32,Math.min(62,cwFromH));
+  if(cw>cwFromW) cw=Math.max(32,cwFromW);
   let ch=Math.round(cw*1.41); // ratio carte standard
 
   root.style.setProperty('--cw',cw+'px');
@@ -711,3 +729,26 @@ function computeLayout(){
 })();
 
 window.addEventListener('resize',()=>{computeLayout();});
+
+// ══════════════════════════════════════════════
+// ANIMATION VICTOIRE (D8)
+// ══════════════════════════════════════════════
+function showVictory(winnerIdx){
+  if(!G) return;
+  const existing=document.getElementById('victory-overlay');
+  if(existing) existing.remove();
+  const name=G.players[winnerIdx].name;
+  const ov=document.createElement('div');
+  ov.id='victory-overlay';
+  ov.innerHTML=`
+    <div id="victory-box">
+      <div style="font-size:3.5rem;line-height:1">🏆</div>
+      <div id="victory-name">${name}</div>
+      <div id="victory-sub">a vidé sa crapette !</div>
+      <button class="btn red" style="margin-top:14px;padding:10px 24px;font-size:0.9rem;" onclick="showMenu()">Rejouer</button>
+    </div>`;
+  document.body.appendChild(ov);
+  // Forcer le reflow pour déclencher l'animation CSS
+  ov.getBoundingClientRect();
+  ov.classList.add('visible');
+}

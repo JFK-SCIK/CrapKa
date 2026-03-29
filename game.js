@@ -410,7 +410,7 @@ function checkWin(){
     if(G.players[i].crapette.length===0){
       if(window._simulating){G.phase='game-over';G.winner=i;return true;}
       G.phase='game-over';G.winner=i;render();
-      showModal('🏆 '+G.players[i].name+' gagne !','La crapette est vidée !',[{label:'Rejouer',fn:showMenu}]);
+      setTimeout(()=>showVictory(i),300);
       return true;
     }
   }

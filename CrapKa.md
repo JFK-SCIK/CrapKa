@@ -251,13 +251,13 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | # | Statut | Description |
 |---|--------|-------------|
 | D1 | ✅ fait | **Supprimer sélecteur BF** — Seul mode disponible, le `<select id="ai-level">` est inutile. |
-| D2 | À faire | Aligner les 4 Piles communes verticalement avec les zones joueurs. |
-| D3 | À faire | Slider redimensionnement sans réduire les cartes tant qu'on ne touche pas le bord droit du recyclage. |
-| D4 | À faire | Déplacer menus et widgets sous le titre "CrapKa". |
-| D5 | À faire | Bouton Règles + crédits A&S. |
+| D2 | ✅ fait | Piles communes en colonne verticale (`flex-direction:column` sur `.commons-col`). |
+| D3 | ✅ fait | `computeLayout` : taille des cartes calculée depuis la hauteur d'abord ; la contrainte de largeur n'intervient que si le contenu déborde (slider ne réduit plus les cartes tant qu'il reste de la place). |
+| D4 | ✅ fait | Contrôles (slider, debug, boutons) déplacés sous le titre dans `#hdr-controls` ; `#hdr` passe en `flex-direction:column`. |
+| D5 | ✅ fait | Bouton 📖 dans le header + `showRules()` avec résumé des règles et crédits A&S. |
 | D6 | À faire | Sauvegarde partie + paramètres en localStorage (cookie). |
 | D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
-| D8 | À faire | Animation victoire. |
+| D8 | ✅ fait | Animation victoire : overlay `#victory-overlay` avec fade-in + scale-up CSS, 300ms après le game-over. `showMenu()` supprime l'overlay. |
 
 ### Long terme
 - Suite descendante en Défausse (règle optionnelle)

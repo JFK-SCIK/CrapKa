@@ -10,22 +10,23 @@
 
 <div id="hdr">
   <h1>🃏 CrapKa</h1>
-  <div id="speedrow">
-    <span>⚡</span>
-    <input type="range" id="spd" min="0" max="5" step="1" value="3" oninput="setSpeed(this.value)">
-  </div>
-  <div style="display:flex;gap:5px;">
-    <button class="btn" id="btn-debug" onclick="toggleDebug()" title="Mode debug">🐛</button>
+  <div id="hdr-controls">
+    <div id="speedrow">
+      <span>⚡</span>
+      <input type="range" id="spd" min="0" max="5" step="1" value="3" oninput="setSpeed(this.value)">
+    </div>
     <span id="step-controls" style="display:none;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);">
       <input type="checkbox" id="step-check" onchange="toggleStepMode()" title="Pas-à-pas IA">
       <label for="step-check" style="cursor:pointer">PàP</label>
       <button class="btn" id="step-next" onclick="stepOrPlay()" style="display:none;padding:3px 8px;">▶</button>
       <button class="btn" id="btn-seq-toggle" onclick="toggleBFSeqPin()" style="display:none;padding:3px 6px;" title="Afficher/masquer les séquences BF">≡</button>
     </span>
+    <button class="btn" id="btn-debug" onclick="toggleDebug()" title="Mode debug">🐛</button>
     <button class="btn" id="btn-undo" onclick="undo()" title="Retour arrière">↩</button>
     <button class="btn" onclick="saveToFile()" title="Sauvegarder (télécharger fichier)">💾</button>
     <button class="btn" onclick="loadFromFile()" title="Charger une sauvegarde (fichier)">📂</button>
     <button class="btn" onclick="snapshot()">📋</button>
+    <button class="btn" onclick="showRules()" title="Règles du jeu">📖</button>
     <button class="btn red" onclick="showMenu()">Menu</button>
   </div>
 </div>
