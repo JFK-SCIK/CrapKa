@@ -14,12 +14,6 @@
     <span>⚡</span>
     <input type="range" id="spd" min="0" max="5" step="1" value="3" oninput="setSpeed(this.value)">
   </div>
-  <div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);flex-shrink:0;">
-    <span>🧠</span>
-    <select id="ai-level" style="background:var(--bg3);color:var(--text);border:none;border-radius:4px;padding:2px 4px;font-size:0.62rem;cursor:pointer;">
-      <option value="6" selected>BF</option>
-    </select>
-  </div>
   <div style="display:flex;gap:5px;">
     <button class="btn" id="btn-debug" onclick="toggleDebug()" title="Mode debug">🐛</button>
     <span id="step-controls" style="display:none;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);">

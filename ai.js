@@ -549,11 +549,12 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Fin de tour : défausser une carte de la main (pas crapette) — toutes les combinaisons
+  // Fin de tour : défausser une carte de la main (pas crapette, pas un Roi) — toutes les combinaisons
   if(!visibleOnly){
     for(let di=0;di<4;di++){
       const defTop=p.defausse[di].length?p.defausse[di][p.defausse[di].length-1]:null;
       for(const c of p.hand){
+        if(c.num===13) continue; // les Rois ne peuvent pas être défaussés en fin de séquence BF
         if(!defTop||defTop.num!==1||c.num===1)
           moves.push({type:'end',card:c,src:{type:'hand'},di});
       }

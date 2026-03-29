@@ -619,22 +619,9 @@ function snapshot(){
     recyclage:G.futurePioche.length
   };
   const txt=JSON.stringify(state,null,1);
-  // Afficher dans une modale
-  // Construire la modale manuellement pour accès à txt dans le bouton copie
-  document.getElementById('mtitle').textContent='📋 Snapshot';
-  document.getElementById('mbody').style.cssText='text-align:left;font-size:0.6rem;font-family:monospace;white-space:pre-wrap;max-height:55vh;overflow-y:auto;color:var(--text)';
-  document.getElementById('mbody').textContent=txt;
-  const btnsEl=document.getElementById('mbtns');btnsEl.innerHTML='';
-  const cpBtn=document.createElement('button');cpBtn.className='btn';cpBtn.textContent='📋 Copier';
-  cpBtn.onclick=()=>{
-    const t=document.getElementById('mbody').textContent;
-    const done=()=>{setStatus('Copié !');closeModal();};
-    if(navigator.clipboard){navigator.clipboard.writeText(t).then(done).catch(()=>{_fbCopy(t);done();});}
-    else{_fbCopy(t);done();}
-  };
-  const clBtn=document.createElement('button');clBtn.className='btn';clBtn.textContent='Fermer';clBtn.onclick=closeModal;
-  btnsEl.appendChild(cpBtn);btnsEl.appendChild(clBtn);
-  document.getElementById('movl').classList.add('on');
+  const done=()=>setStatus('Snapshot terminé');
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(done).catch(()=>{_fbCopy(txt);done();});}
+  else{_fbCopy(txt);done();}
 }
 
 // ══════════════════════════════════════════════

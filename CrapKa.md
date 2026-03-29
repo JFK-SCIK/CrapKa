@@ -230,8 +230,32 @@ crapette → init/clear → main+défausse vers piles → demande → défausse 
 - `SPEEDS=[0, 4000, 2000, 1200, 600, 250]` ms, slider 0-5, défaut=3
 - Demande : blink rouge 3× avant déplacement
 
-## TODO
-- Corriger le Recyclage : mettre sous la Pioche et non remplacer (implémentation actuelle OK, règle bien appliquée depuis reshufflePioche)
+## TODO / Backlog
+
+### Bugs (ordre de traitement)
+
+| # | Statut | Description |
+|---|--------|-------------|
+| B1 | À faire | **Double demande + mauvaise animation** — `_sLegal` génère un 2ème move `demand` sur la carte sous le sommet après que la 1ère a été appliquée. Fix : vérifier que l'UID du sommet actuel correspond au snap avant de générer `demand`. Animation : utiliser `[data-def-top]` au lieu de `[data-def-slot] .card`. |
+| B2 | ✅ fait | **Rois hors moves `end` (BF)** — Les Rois ne peuvent pas être défaussés en fin de séquence BF. Filtre `c.num !== 13` dans `_sLegal` pour les moves `end`. |
+| B3 | À faire | **Coup inutile avant crapette** — un coup main→pile sans lien avec la crapette est joué avant la chaîne crapette car son extraBonus +15 fait monter le score. Fix : réduire extraBonus main→pile de +15 à +5, ou ne l'accorder que si le coup active la crapette dans l'état résultant. |
+| B4 | À faire | **Défausse sans retourner pile vide** — Ne jamais défausser si une pile est vide et la pioche dispo, sauf exception stratégique (crapette ≤ 3, pas d'As, etc.). Renforcer la logique existante dans `_aiDiscard`. |
+| B5 | À faire | **Priorités défausse / main résiduelle** — Refonte `_discardPriority` + `_eval` : repiocher main vide avec rois > défausser ; bonus cartes dans la chaîne vers crapette ; malus doublons. |
+
+### Divers UI/UX (ordre de traitement)
+
+| # | Statut | Description |
+|---|--------|-------------|
+| D1 | ✅ fait | **Supprimer sélecteur BF** — Seul mode disponible, le `<select id="ai-level">` est inutile. |
+| D2 | À faire | Aligner les 4 Piles communes verticalement avec les zones joueurs. |
+| D3 | À faire | Slider redimensionnement sans réduire les cartes tant qu'on ne touche pas le bord droit du recyclage. |
+| D4 | À faire | Déplacer menus et widgets sous le titre "CrapKa". |
+| D5 | À faire | Bouton Règles + crédits A&S. |
+| D6 | À faire | Sauvegarde partie + paramètres en localStorage (cookie). |
+| D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
+| D8 | À faire | Animation victoire. |
+
+### Long terme
 - Suite descendante en Défausse (règle optionnelle)
 - Évaluation probabiliste de la Pioche
 - Mode multijoueur réseau (FastAPI + WebSockets)
