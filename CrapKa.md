@@ -1,13 +1,19 @@
 # CrapKa — Documentation projet
 
 ## Stack technique
-- Frontend : HTML/JS vanilla, fichier unique `crapka_v4.html`
+- Frontend : HTML/JS vanilla, multi-fichiers (index.html + JS/CSS séparés)
 - Backend futur : FastAPI (Python) + WebSockets, port 8003
 - DB future : SQLite
 - Environnement : Windows, VSCode + Claude Code
 
 ## Fichiers
-- `crapka_v4.html` : prototype jouable complet (2 joueurs même écran + IA)
+- `crapka_v4.html` : version monolithique de référence (archivée)
+- `index.html` : squelette HTML + liens vers les modules
+- `styles.css` : toute la CSS
+- `game.js` : constantes + état + règles + actions
+- `ai.js` : tout le bloc IA (BF, simulation, évaluation, défausse)
+- `ui.js` : rendu + DOM + interactions + log + modal + layout
+- `app.js` : bootstrap (`computeLayout` + `renderMenu`)
 - `CrapKa.md` : ce fichier
 
 ---
@@ -23,6 +29,7 @@
 ### Mise en place
 - Chaque joueur reçoit 1 jeu de 52 cartes avec lequel il constitue une Crapette de 21 cartes (pile cachée, 1ère visible), met une carte sur les deux des Piles communes en partant de sa gauche (J1 sur P1 et P2, J2 sur P3 et P4), et prend 5 cartes qui constitueront sa Main de départ.
 - les cartes restantes des deux joueurs (soit 2*24 cartes) sont mélangées ensemble et forment la Pioche initiale
+- Le joueur dont la crapette est la plus petite commence (Roi=2 pour cette comparaison). En cas d'égalité : 1re carte de pile, 2e carte de pile, tirage au sort.
 
 ### Déroulement d'un tour
 1. Piocher jusqu'à avoir 5 cartes en Main
@@ -69,7 +76,7 @@
 - A la fin du tour du joueur A, on regarde quelles cartes (cartes C) de ses Défausses sont jouables sur les Piles
 - Pendant son tour (pas forcément au début), l'autre joueur (joueur B), peut demander au joueur A de jouer une et une seule carte C de sa Défausse
 - Le joueur A est alors obligé de la jouer immédiatement, bien que ce ne soit pas son tour, puis le joueur B peut continuer à jouer.
-- La Demande est un coup comme un autre (évalué par le minimax)
+- La Demande est un coup comme un autre (planifié par le BF)
 
 ### Recyclage
 - Pour être terminée, une Pile doit avoir une Dame en carte apparente (ou un Roi faisant office de Dame)
@@ -121,20 +128,24 @@ G = {
 
 ## Architecture IA
 
-### Niveaux (sélecteur 🧠)
-- **Niv 1** : greedy pur (`_aiGreedyMove`)
-- **Niv 2-5** : minimax avec alpha-beta (profondeur = niveau en tours)
+### Mode unique : Force Brute (BF)
+L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_SEQUENCES = 5000`).
 
 ### Flux d'exécution IA (`aiPlayTurn`)
 1. `_saveGameState()` : snapshot de l'état réel
 2. `_buildAiSequence()` : calcule la séquence sur une copie
-   - `_applyForcedMoves()` : coups imposés (Dame→écart, Roi pending, As sur Pile vide)
-   - `_miniMaxBestSequence(depth)` : retourne moves `play/clear/init/demand`
+   - `_applyForcedMoves()` : coups imposés (Dame→écart, Roi pending, As sur Pile vide, Pioche→Pile vide)
+   - `_bruteForce()` : BFS, retourne les moves de la meilleure séquence terminée
    - Les moves `end` (défausse) sont filtrés — `_aiDiscard` s'en chargera
 3. `_restoreGameState()` : remet l'état original
 4. `_replayMoves(moves)` : anime les coups un par un
-   - Quand la liste est vide, relance `_buildAiSequence` pour les coups restants (demandes, Crapette devenue jouable)
-   - Si rien, appelle `_aiDiscard` pour choisir la défausse
+   - À chaque **découverte** (Crapette posée, Pioche retournée), s'arrête et relance `aiPlayTurn`
+   - Quand la liste est vide, appelle `_aiDiscard` pour choisir la défausse
+
+### Gestion des cartes invisibles
+- Après la première pose de crapette (`crapettePlayed=true`), la carte suivante est invisible → coups crapette exclus
+- Retournement pioche (`init` sans carte) et `redraw` : terminent la séquence, score calculé AVANT le tirage
+- L'exécution s'arrête à chaque découverte et recalcule avec les cartes réellement tirées
 
 ### Moteur de simulation (fonctions `_s*`)
 - `_cloneState(g, ui)` : deep clone incluant les startSnaps
@@ -150,55 +161,41 @@ G = {
 - `_sWasPlayable(g, defIdx, oppIdx)` : carte jouable à la fin du tour adverse ?
 - `_eval(g, ui, aiIdx)` : évaluation de position
 
+### Déduplication (`_bfDedup`)
+- Main : deux cartes de même valeur sur la même pile → clé `ph:<num>:<ci>`
+- Défausses vides équivalentes : clé `end:<num>:E`
+
 ### Fonction d'évaluation `_eval`
 | Critère | Points |
 |---------|--------|
 | Crapette IA posée | +50/carte |
-| Crapette adverse jouable | -40 |
+| Crapette adverse jouable | −40 |
 | Crapette IA jouable | +30 |
 | Carte de Main jouable | +4 |
-| Main vide + Pioche dispo | +15 |
+| Main vide + Pioche dispo | +10 |
 | Piles proches Crapette (dist. circulaire) | jusqu'à +22 |
+| Pile la plus proche (bonus min-dist) | jusqu'à +24 |
+| Pile activable par carte visible IA | +8 |
 | Diversité Défausses | +3/valeur différente |
+| Main petite (< 5 cartes) | +4/(5−size) |
+| Rois en main si crapette injouable | +10/roi |
+| Pas de doublon crapette en main | +8 |
+| Pas de doublons de valeur en main | +5 |
+| Cartes précédant la crapette en main | +8/+4 |
 
-### Priorités `_mvPrio`
-| Type | Score |
-|------|-------|
-| `play` Crapette non-Roi | 100 |
-| `demand` mène à Crapette | 90 |
-| `play` Roi Crapette chaîne→Dame | 80-90 |
-| `play` mène à la Crapette | 60 |
-| `demand` dist≤3 vers Crapette | 55 |
-| `play` Dame | 35-38 |
-| `clear` | 25 |
-| `demand` générique | 20 |
-| `play` Roi (finalVal≥10) | 40 |
-| `init` | 5 |
+### Bonus de séquence (`extraBonus`)
+Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
+- Carte de Main posée sur Pile → +15
+- Crapette posée sur Pile → +50
 
-### Paramètres minimax
-- `_MM_MAX_NODES = 3000`
-- Branching : 4 coups max IA, 3 adversaire
-- Depth = niveau IA (en tours, pas en coups)
-- Tie-break : `_mvKey(mv)` = `ci×100000 + uid×10 + srcIdx`
+### Priorité des coups dans BF (`_bfSortMoves`)
+crapette → init/clear → main+défausse vers piles → demande → défausse (fin de tour)
 
 ### Sauvegardes / Undo
 - `saveUndo()` / `_buildUndoSnap()` / `_restoreFromSnap(s)` : undo complet
 - 20 niveaux d'undo, sauvegardé avant chaque action (humain ou IA)
-- `localStorage` : `crapka_save_<nom>` pour sauvegardes nommées
-
----
-
-## Problème architectural en cours
-
-Le flux "minimax → replay → minimax" est fragile :
-- Le minimax planifie une séquence partielle
-- `_replayMoves` rejoue les moves animés
-- À la fin, un second minimax est relancé pour les coups restants (demandes, Crapette devenue jouable après une demande)
-- `_aiDiscard` est appelé en dernier pour la défausse
-
-**Objectif** : le minimax devrait planifier la séquence complète en une passe. `_aiDiscard` ne devrait faire que choisir la carte à défausser.
-
-**Bug à corriger** : le Recyclage met les cartes *sous* la Pioche selon les règles, mais l'implémentation actuelle remplace la Pioche entière par le Recyclage mélangé.
+- `localStorage` : `crapka_debug` pour le dernier snap
+- Sauvegarde/chargement fichier JSON (`saveToFile` / `loadFromFile`)
 
 ---
 
@@ -206,8 +203,11 @@ Le flux "minimax → replay → minimax" est fragile :
 - Cartes IA face visible
 - Log : `[IA] M:... | D:... | Cr:...` après chaque coup
 - Mode pas-à-pas (case PàP + bouton ▶)
-- Log minimax : branches avec séquence et score
-- Log demandes : `[D] BUILD`, `[D] Legal`, `[D] Sources`, `[D] sWP`
+- **Panel séquences BF** : liste toutes les séquences terminées triées par score
+  - Crapette = gras rouge, autres découvertes = gras
+  - Épinglé par défaut (`_bfSeqPinned=true`) : reste visible, affiche "en attente…" entre les tours
+  - Bouton `≡` pour afficher/masquer
+- Log demandes : `[D] BUILD`, `[D] sWP di=...`
 
 ## Animations
 - `flyCard(card, fromR, toR, cb)` : animation de vol CSS
@@ -215,7 +215,7 @@ Le flux "minimax → replay → minimax" est fragile :
 - Demande : blink rouge 3× avant déplacement
 
 ## TODO
-- Résoudre le problème architectural du flux minimax → replay (Crapette jouable après demande)
-- Corriger le Recyclage : mettre sous la Pioche et non remplacer
-- Suite descendante en Défausse
+- Corriger le Recyclage : mettre sous la Pioche et non remplacer (implémentation actuelle OK, règle bien appliquée depuis reshufflePioche)
+- Suite descendante en Défausse (règle optionnelle)
 - Évaluation probabiliste de la Pioche
+- Mode multijoueur réseau (FastAPI + WebSockets)
