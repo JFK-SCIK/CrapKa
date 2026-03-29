@@ -85,7 +85,6 @@ function _restoreGameState(s){
 function _replayMoves(moves){
   if(!moves.length||G.phase==='game-over'){
     _replayingAI=false;
-    hideBFSeq();
     if(G.phase!=='game-over'&&G.cur===UI.aiIdx){
       // Défausse : calculée sur l'état réel courant
       window._simulating=true;
@@ -95,11 +94,20 @@ function _replayMoves(moves){
       const discardMoves=[..._aiMoves];
       _aiMoves=[];
       if(discardMoves.length){
+        // PàP : pause avant la défausse, séquences BF encore visibles
+        if(_stepMode&&_debugMode){
+          _stepResolve=()=>{hideBFSeq();_replayingAI=true;_replayMoves(discardMoves);};
+          setStatus('[PàP] Défausse — ▶ pour jouer');
+          _updateStepUI();
+          return;
+        }
+        hideBFSeq();
         _replayingAI=true;
         _replayMoves(discardMoves);
         return;
       }
     }
+    hideBFSeq();
     render();showBtns();return;
   }
   _replayingAI=true;
@@ -676,7 +684,9 @@ function _eval(g,ui,aiIdx){
 // ══════════════════════════════════════════════
 // FORCE BRUTE
 // ══════════════════════════════════════════════
-const BF_MAX_SEQUENCES=5000;
+// Limite sur les branches actives (non terminées) plutôt que sur le total :
+// les séquences terminées (end) n'étouffent plus l'exploration en profondeur.
+const BF_MAX_ACTIVE=600;
 
 // Formate une valeur de carte sur 1 caractère (10 → T)
 function _fmtCV(card){ return card?( card.value==='10'?'T':card.value ):'?'; }
@@ -722,13 +732,17 @@ function _bruteForce(){
     crapettePlayed:false   // true après la première pose de crapette (suivante invisible)
   }];
 
-  while(true){
+  let nonTermCount=1; // nombre de séquences actives (non terminées)
+  while(nonTermCount>0&&nonTermCount<BF_MAX_ACTIVE){
     const idx=sequences.findIndex(s=>!s.terminated);
-    if(idx===-1||sequences.length>=BF_MAX_SEQUENCES) break;
+    if(idx===-1) break;
     const active=sequences[idx];
     const expanded=_bfExpand(active,aiIdx);
-    sequences.splice(idx,1);      // retirer la séquence active
-    sequences.push(...expanded);  // ajouter les enfants à la fin (BFS)
+    sequences.splice(idx,1); nonTermCount--;  // retirer la séquence active
+    for(const s of expanded){
+      sequences.push(s);
+      if(!s.terminated) nonTermCount++;
+    }
   }
 
   // Meilleure séquence terminée (tie-break : plus courte si scores égaux)
@@ -1091,8 +1105,8 @@ function _aiBestDef(card){
 
     // As sur as → priorité absolue
     if(card.num===1&&t&&t.num===1){sc=100;}
-    // Pile vide → neutre
-    else if(!t){sc=3;}
+    // Pile vide → légèrement préférable à couvrir une carte utile
+    else if(!t){sc=5;}
     // Ne pas couvrir un as
     else if(t.num===1&&card.num!==1){sc=-10;}
     else {
@@ -1109,6 +1123,9 @@ function _aiBestDef(card){
 
       // Malus : la valeur du sommet actuel (t) est unique → la couvrir fait perdre de l'info
       if(!tNumIsElsewhere) sc-=3;
+
+      // Malus : créer une suite croissante (card vient juste après t) → bloque l'accès à t
+      if(card.num===t.num+1) sc-=4;
 
       // Malus : ne pas couvrir une carte proche de la crapette (utile à garder visible)
       const target=crNum-1;

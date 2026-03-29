@@ -129,7 +129,7 @@ G = {
 ## Architecture IA
 
 ### Mode unique : Force Brute (BF)
-L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_SEQUENCES = 5000`).
+L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_ACTIVE = 600` branches actives max).
 
 ### Flux d'exécution IA (`aiPlayTurn`)
 1. `_saveGameState()` : snapshot de l'état réel
@@ -141,6 +141,7 @@ L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_S
 4. `_replayMoves(moves)` : anime les coups un par un
    - À chaque **découverte** (Crapette posée, Pioche retournée), s'arrête et relance `aiPlayTurn`
    - Quand la liste est vide, appelle `_aiDiscard` pour choisir la défausse
+   - En mode PàP : pause supplémentaire "Défausse — ▶" avant de jouer la défausse
 
 ### Gestion des cartes invisibles
 - Après la première pose de crapette (`crapettePlayed=true`), la carte suivante est invisible → coups crapette exclus
@@ -188,6 +189,20 @@ Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
 - Carte de Main posée sur Pile → +15
 - Crapette posée sur Pile → +50
 
+### Choix de la Défausse (`_aiBestDef`)
+Scores pour choisir sur quelle pile Défausse poser la carte :
+- As sur As : +100 (priorité absolue)
+- Pile vide : +5
+- Couvrir un As avec non-As : −10
+- Base (petite sur grande) : +2, (grande sur petite) : +1
+- Doublon visible ailleurs (pas de perte d'info) : +5 ; unique : −3
+- **Suite croissante (card.num = top.num+1) : −4** (bloque l'accès au sommet)
+- Sommet proche de la Crapette (dist ≤ 3) : −4
+- Couvrir une carte demandable adverse : +4
+- Carte déjà visible en propre défausse : −2
+- Pile courte (longueur 0→+4, 1→+3, etc.)
+- Carte précieuse enfouie (non disponible ailleurs) : malus décroissant
+
 ### Priorité des coups dans BF (`_bfSortMoves`)
 crapette → init/clear → main+défausse vers piles → demande → défausse (fin de tour)
 
@@ -206,6 +221,7 @@ crapette → init/clear → main+défausse vers piles → demande → défausse 
 - **Panel séquences BF** : liste toutes les séquences terminées triées par score
   - Crapette = gras rouge, autres découvertes = gras
   - Épinglé par défaut (`_bfSeqPinned=true`) : reste visible, affiche "en attente…" entre les tours
+  - En PàP, reste visible jusqu'à la pause "Défausse — ▶" (les séquences ne disparaissent pas entre les coups)
   - Bouton `≡` pour afficher/masquer
 - Log demandes : `[D] BUILD`, `[D] sWP di=...`
 
