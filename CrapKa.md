@@ -252,7 +252,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 |---|--------|-------------|
 | D1 | ✅ fait | **Supprimer sélecteur BF** — Seul mode disponible, le `<select id="ai-level">` est inutile. |
 | D2 | ✅ fait | Piles communes en colonne verticale (`flex-direction:column` sur `.commons-col`). |
-| D3 | ✅ fait | `computeLayout` : taille des cartes calculée depuis la hauteur d'abord ; la contrainte de largeur n'intervient que si le contenu déborde (slider ne réduit plus les cartes tant qu'il reste de la place). |
+| D3 | ✅ fait | `computeLayout` : taille calculée depuis la hauteur d'abord. Contrainte largeur = `(gameW−40)/6` (ligne centrale : Pioche + 4 Piles + Recyclage = 6 colonnes). Corrected: was `(gameW−80)/11` (surestimait la contrainte). |
 | D4 | ✅ fait | Contrôles (slider, debug, boutons) déplacés sous le titre dans `#hdr-controls` ; `#hdr` passe en `flex-direction:column`. |
 | D5 | ✅ fait | Bouton 📖 dans le header + `showRules()` avec résumé des règles et crédits A&S. |
 | D6 | À faire | Sauvegarde partie + paramètres en localStorage (cookie). |

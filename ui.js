@@ -666,10 +666,10 @@ function computeLayout(){
   // Total estimé = ch*8 + 130px  → ch = (gameH - 130) / 8
   const cwFromH=Math.floor((gameH-130)/8);
 
-  // Contrainte horizontale minimale : crapette + 4 défausses + main(5) + col mid(1) + gaps
-  // ≈ (1+4+5+1)*cw + 80px = 11*cw + 80px  → cw = (gameW - 80) / 11
-  // Appliquer uniquement si le contenu ne tient pas (slider touche le bord droit du recyclage)
-  const cwFromW=Math.floor((gameW-80)/11);
+  // Contrainte horizontale : la ligne centrale est la plus large avec
+  // Pioche + 4 Piles + Recyclage = 6 colonnes de cartes + gaps (~40px)
+  // → cw = (gameW - 40) / 6
+  const cwFromW=Math.floor((gameW-40)/6);
 
   // La taille est dictée par la hauteur ; la largeur ne la contraint que si nécessaire
   let cw=Math.max(32,Math.min(62,cwFromH));
