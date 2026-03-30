@@ -658,22 +658,23 @@ function computeLayout(){
   const gameW=totalW-sideW-5; // 5px resizer
   const gameH=totalH-hdrH-statusH-abarH;
 
-  // Taille des cartes déterminée par la hauteur disponible (D3 : le slider ne réduit pas les cartes
-  // tant que le contenu tient horizontalement dans la zone de jeu).
-  // Layout vertical : pzone(top) + mid + pzone(bot)
-  // pzone = label(~18px) + prow(ch+8px) + hand(ch+2px) + gaps ≈ ch*2 + 50px
-  // mid avec piles verticales = 4*ch + 4*gap ≈ 4*ch + 30px
-  // Total estimé = ch*8 + 130px  → ch = (gameH - 130) / 8
-  const cwFromH=Math.floor((gameH-130)/8);
+  // Taille des cartes déterminée par la hauteur disponible.
+  // Layout : pzone(top) + mid(1 ligne) + pzone(bot)
+  // pzone ≈ label(18px) + prow(ch) + hand(ch) + gaps ≈ 2*ch + 50px  (×2)
+  // mid   ≈ ch + 20px
+  // Total ≈ 5*ch + 120px  → ch = (gameH - 120) / 5  → cw = ch / 1.41
+  const cwFromH=Math.floor((gameH-120)/5/1.41);
 
-  // Contrainte horizontale : la ligne centrale est la plus large avec
-  // Pioche + 4 Piles + Recyclage = 6 colonnes de cartes + gaps (~40px)
-  // → cw = (gameW - 40) / 6
-  const cwFromW=Math.floor((gameW-40)/6);
+  // Contrainte horizontale : zone joueur = crapette(1) + 4 défausses(4) + main(5) = 10 cols + gaps
+  // (plus contraignante que la ligne mid : 6 cols)
+  // → cw = (gameW - 60) / 10
+  const cwFromW=Math.floor((gameW-60)/10);
 
-  // La taille est dictée par la hauteur ; la largeur ne la contraint que si nécessaire
-  let cw=Math.max(32,Math.min(62,cwFromH));
-  if(cw>cwFromW) cw=Math.max(32,cwFromW);
+  // La hauteur fixe la taille idéale ; la largeur la réduit si elle manque.
+  // Pas de minimum sur cwFromW : les cartes doivent pouvoir rétrécir autant que nécessaire.
+  let cw=Math.min(62,cwFromH);
+  if(cw>cwFromW) cw=cwFromW;
+  cw=Math.max(20,cw); // plancher absolu pour rester lisible
   let ch=Math.round(cw*1.41); // ratio carte standard
 
   root.style.setProperty('--cw',cw+'px');

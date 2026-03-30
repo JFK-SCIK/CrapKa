@@ -131,7 +131,7 @@ body{
 .mid-inner{display:flex;align-items:center;gap:4px;}
 .pioche-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .fpioche-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
-.commons-col{display:flex;flex-direction:column;gap:5px;}
+.commons-col{display:flex;flex-direction:row;gap:5px;}
 .zone-lbl{font-size:calc(var(--cf) * 0.82);color:var(--text2);text-align:center;line-height:1.2;}
 #abar{
   background:var(--bg2);padding:4px 8px;
