@@ -690,6 +690,51 @@ function _eval(g,ui,aiIdx){
     if(emptyPiles>0) sc-=emptyPiles*30;
   }
 
+  // Bonus : couverture de la chaîne principale vers la crapette par la main résiduelle
+  // Pour la pile la plus proche, chaque valeur de la chaîne présente en main = +6
+  if(crT){
+    const target=(crT.num-1+12)%12||12;
+    let minDist=12,bestTn=0;
+    for(let ci=0;ci<4;ci++){
+      const tn=_sTopNum(g,ui,ci);
+      if(tn>0&&tn<12){const dist=(target-tn+12)%12;if(dist<minDist){minDist=dist;bestTn=tn;}}
+    }
+    if(minDist>0&&minDist<12){
+      const chainLen=Math.min(5,minDist);
+      const handNums=new Set(ai.hand.map(c=>c.num));
+      for(let step=1;step<=chainLen;step++){
+        const v=((bestTn+step-1)%12)+1;
+        if(v!==crT.num&&handNums.has(v)) sc+=6;
+      }
+    }
+  }
+
+  // Malus : valeurs de la chaîne adverse visibles dans les défausses IA
+  // et non déjà visibles chez l'adversaire → dangereux (demandables ou exploitables)
+  if(oppCrT){
+    const oppTarget=(oppCrT.num-1+12)%12||12;
+    let oppMinDist=12,oppBestTn=0;
+    for(let ci=0;ci<4;ci++){
+      const tn=_sTopNum(g,ui,ci);
+      if(tn>0&&tn<12){const dist=(oppTarget-tn+12)%12;if(dist<oppMinDist){oppMinDist=dist;oppBestTn=tn;}}
+    }
+    if(oppMinDist>0&&oppMinDist<12){
+      const oppChainLen=Math.min(5,oppMinDist);
+      const oppChainVals=new Set();
+      for(let step=1;step<=oppChainLen;step++){
+        const v=((oppBestTn+step-1)%12)+1;
+        if(v!==oppCrT.num) oppChainVals.add(v);
+      }
+      for(const d of ai.defausse){
+        const t=d.length?d[d.length-1]:null;
+        if(!t||!oppChainVals.has(t.num)) continue;
+        const visForOpp=opp.defausse.some(od=>{const ot=od.length?od[od.length-1]:null;return ot&&ot.num===t.num;})
+          ||(opp.crapette.length&&opp.crapette[opp.crapette.length-1].num===t.num);
+        if(!visForOpp) sc-=8;
+      }
+    }
+  }
+
   return sc;
 }
 
@@ -1042,6 +1087,30 @@ function _handCardIsPlayable(card){
   return false;
 }
 
+// Retourne le Set des valeurs utiles dans la chaîne vers la crapette d'un joueur
+// (depuis la pile la plus proche, limitée à min(5, distance) pas)
+// Utilise l'état global G/UI (appelé depuis _discardPriority uniquement)
+function _chainValsForPlayer(pidx){
+  const p=G.players[pidx];
+  const crT=peek(p.crapette);
+  if(!crT) return new Set();
+  const crNum=crT.num;
+  const target=(crNum-1+12)%12||12;
+  let minDist=12,bestTn=0;
+  for(let ci=0;ci<4;ci++){
+    const tn=topNum(ci);
+    if(tn>0&&tn<12){const dist=(target-tn+12)%12;if(dist<minDist){minDist=dist;bestTn=tn;}}
+  }
+  const vals=new Set();
+  if(minDist===0||minDist>=12) return vals;
+  const chainLen=Math.min(5,minDist);
+  for(let step=1;step<=chainLen;step++){
+    const v=((bestTn+step-1)%12)+1;
+    if(v!==crNum) vals.add(v);
+  }
+  return vals;
+}
+
 function _discardPriority(card, crNum, opp, aceDanger, p){
   let score=0;
 
@@ -1083,6 +1152,29 @@ function _discardPriority(card, crNum, opp, aceDanger, p){
   // 7. Doublon en main → bonus à défausser
   const cnt=p.hand.filter(hc=>hc.num===card.num).length;
   if(cnt>=2) score+=15;
+
+  // 8. Carte dans la chaîne vers la crapette IA
+  const myChain=_chainValsForPlayer(G.cur);
+  if(myChain.has(card.num)){
+    if(cnt===1) score-=20; // unique en main, précieuse pour la chaîne → ne pas défausser
+    else score+=10;        // doublon dans la chaîne → l'un peut partir
+  }
+
+  // 9. Carte dans la chaîne adverse et non visible chez l'adversaire → dangereux de la défausser
+  // (elle deviendra visible en défausse, demandable ou exploitable par l'adversaire)
+  const oppChain=_chainValsForPlayer(opp);
+  if(oppChain.has(card.num)){
+    const oppP=G.players[opp];
+    const visibleForOpp=
+      (peek(oppP.crapette)&&peek(oppP.crapette).num===card.num)||
+      oppP.defausse.some(d=>{const t=peek(d);return t&&t.num===card.num;});
+    if(!visibleForOpp) score-=15; // on révèle une carte utile à l'adversaire
+  }
+
+  // 10. Défausser cette carte laisse uniquement des rois → rapproche du redraw
+  const residual=p.hand.filter(hc=>hc.uid!==card.uid);
+  const onlyKingsLeft=residual.length>0&&residual.every(c=>c.num===13);
+  if(onlyKingsLeft&&(G.pioche.length>0||G.futurePioche.length>0)) score+=20;
 
   return score;
 }

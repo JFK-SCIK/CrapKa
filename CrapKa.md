@@ -184,6 +184,8 @@ L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_A
 | Pas de doublons de valeur en main | +5 |
 | Cartes précédant la crapette en main | +8/+4 |
 | Piles vides avec pioche dispo | −30/pile |
+| Couverture chaîne crapette par la main | +6/valeur couverte (min 5 pas) |
+| Valeur chaîne adverse visible en défausse IA | −8/valeur (si non visible chez adv.) |
 
 ### Bonus de séquence (`extraBonus`)
 Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
@@ -244,7 +246,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | B2 | ✅ fait | **Rois hors moves `end` (BF)** — Les Rois ne peuvent pas être défaussés en fin de séquence BF. Filtre `c.num !== 13` dans `_sLegal` pour les moves `end`. |
 | B3 | ✅ fait | **Coup inutile avant crapette** — `_bfSortMoves` reçoit l'état et classe les coups de pile en "activent la crapette" (avant) et "autres" (après). `handPlayBonus` passe de +15 flat à +25 (activant) / +5 (autre) → les séquences qui jouent la crapette sans pré-coup inutile dominent. |
 | B4 | ✅ fait | **Défausse sans retourner pile vide** — `_eval` pénalise −30/pile vide quand la pioche est disponible → le BF choisit toujours d'init une pile vide avant de terminer. |
-| B5 | À faire | **Priorités défausse / main résiduelle** — Refonte `_discardPriority` + `_eval` : repiocher main vide avec rois > défausser ; bonus cartes dans la chaîne vers crapette ; malus doublons. |
+| B5 | ✅ fait | **Priorités défausse / main résiduelle** — Nouveau helper `_chainValsForPlayer(pidx)` : valeurs utiles sur min(5,dist) pas depuis la pile la plus proche. `_discardPriority` +3 critères : −20 si carte unique dans ma chaîne, −15 si carte dans chaîne adverse non visible chez l'adversaire, +20 si défausser laisse seulement des rois (→ redraw). `_eval` +2 critères : +6/valeur de chaîne présente en main, −8/valeur chaîne adverse visible en défausse IA non visible chez l'adversaire. |
 
 ### Divers UI/UX (ordre de traitement)
 
