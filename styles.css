@@ -125,6 +125,7 @@ body{
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
 .cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);}
+.right-col{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .hand{display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;min-height:calc(var(--ch) + 2px);}
 .dzone{display:flex;gap:4px;}
 /* MIDDLE */
