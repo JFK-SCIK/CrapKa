@@ -527,6 +527,10 @@ function _updateStepUI(){
   // Afficher si : pause en attente OU tour IA en mode debug
   const showBtn=_debugMode&&(_stepResolve||(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase!=='game-over'));
   btn.style.display=showBtn?'inline-block':'none';
+  // Désactiver pendant l'animation entre deux étapes (évite la race condition)
+  const busy=_replayingAI&&!_stepResolve;
+  btn.disabled=busy;
+  btn.style.opacity=busy?'0.4':'1';
   btn.textContent=_stepResolve?'▶':'▶ IA';
   // Bouton toggle séquences : visible dès que le mode debug est actif
   const tbtn=document.getElementById('btn-seq-toggle');
@@ -565,7 +569,8 @@ function stepNext(){
 
 function stepOrPlay(){
   if(_stepResolve) stepNext();
-  else if(UI.vsAI&&G&&G.cur===UI.aiIdx) aiPlayTurn();
+  // Ne pas relancer aiPlayTurn pendant un replay en cours (animation entre deux étapes)
+  else if(!_replayingAI&&UI.vsAI&&G&&G.cur===UI.aiIdx) aiPlayTurn();
 }
 
 // Log la main d'un joueur (appelé en mode debug après chaque coup)
