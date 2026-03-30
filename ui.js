@@ -288,10 +288,7 @@ function renderPzone(pidx){
   }
   h+=`</div></div>`;
 
-  // ── Colonne droite : défausses + main ──
-  h+=`<div class="right-col">`;
-
-  // Défausses en éventail
+  // Défausses en éventail (directement dans prow, alignées avec les piles communes)
   h+=`<div class="dzone">`;
   for(let di=0;di<4;di++){
     const pile=p.defausse[di];
@@ -339,7 +336,7 @@ function renderPzone(pidx){
   }
   h+=`</div>`; // hand
 
-  h+=`</div></div></div>`; // right-col + prow + pzone
+  h+=`</div></div>`; // prow + pzone
   return h;
 }
 
