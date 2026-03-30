@@ -710,7 +710,7 @@ function computeLayout(){
   function onMove(x){
     if(!dragging) return;
     const dx=startX-x; // tirer vers la gauche agrandit le sidebar
-    const newW=Math.max(50,Math.min(window.innerWidth*0.5,startW+dx));
+    const newW=Math.max(50,Math.min(window.innerWidth*0.75,startW+dx));
     document.documentElement.style.setProperty('--log-w',newW+'px');
     sidebar.style.width=newW+'px';
     computeLayout();

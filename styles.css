@@ -18,7 +18,7 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{
   background:var(--bg);color:var(--text);font-family:'Georgia',serif;
-  height:100dvh;display:flex;flex-direction:column;
+  height:100dvh;display:flex;flex-direction:row;
   overflow:hidden;touch-action:manipulation;
 }
 #hdr{
@@ -43,11 +43,13 @@ body{
   min-height:22px;flex-shrink:0;
 }
 /* LAYOUT PRINCIPAL */
-#main{flex:1;display:flex;overflow:hidden;min-height:0;}
+#main{width:100%;height:100dvh;display:flex;overflow:hidden;min-width:0;}
+#game-col{
+  flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;
+}
 #game{
   flex:1;display:flex;flex-direction:column;
-  overflow:hidden;padding:4px;gap:3px;min-height:0;
-  /* Centrage vertical du contenu */
+  overflow:hidden;padding:4px;gap:3px;min-height:0;min-width:0;
   justify-content:center;
 }
 /* RESIZER */
