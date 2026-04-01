@@ -1367,83 +1367,75 @@ function _aiBestDef(card){
   const p=G.players[G.cur];
   const crTop=peek(p.crapette);
   const crNum=crTop?crTop.num:7;
-  const opp=1-G.cur;
 
-  // Valeurs actuellement visibles dans toutes les sources (pour éviter doublons)
-  const visibleNums=new Set();
-  // Défausses adversaire
-  G.players[opp].defausse.forEach(d=>{const t=peek(d);if(t)visibleNums.add(t.num);});
-  // Crapette IA
-  if(crTop) visibleNums.add(crTop.num);
-  // Défausses IA (valeurs actuellement visibles AVANT cette défausse)
-  p.defausse.forEach(d=>{const t=peek(d);if(t)visibleNums.add(t.num);});
+  // Ensemble des valeurs sur le chemin de la crapette (crNum..12)
+  const chainNums=new Set();
+  for(let v=crNum;v<=12;v++) chainNums.add(v);
 
-  let best=0,bs=-999;
+  // Valeur accessible ailleurs (main + crapette + autres défausses) hors colonne excl
+  const accessibleElsewhere=(num,excl)=>{
+    if(p.hand.some(c=>c.num===num)) return true;
+    if(crTop&&crTop.num===num) return true;
+    return p.defausse.some((d,j)=>j!==excl&&peek(d)&&peek(d).num===num);
+  };
+
+  // Y a-t-il une colonne vide disponible hors colonne excl ?
+  const emptyElsewhere=(excl)=>p.defausse.some((d,j)=>j!==excl&&d.length===0);
+
+  let best=0,bs=-9999;
   for(let i=0;i<4;i++){
-    const t=peek(p.defausse[i]);let sc=0;
+    if(!canOnDefausse(card,p.defausse[i])) continue;
+    const t=peek(p.defausse[i]);
+    let sc=0;
 
-    // As sur as → priorité absolue
-    if(card.num===1&&t&&t.num===1){sc=100;}
-    // Pile vide → légèrement préférable à couvrir une carte utile
-    else if(!t){sc=5;}
-    // Ne pas couvrir un as
-    else if(t.num===1&&card.num!==1){sc=-10;}
-    else {
-      // Base : préférer mettre une petite valeur sur une grande
-      sc=(card.num<t.num)?2:1;
+    if(!t){
+      // Colonne vide : base neutre — meilleure que couvrir une carte du chemin
+      sc=0;
+    } else {
+      const n=t.num; // carte qui sera couverte
+      const m=card.num; // carte qui couvre
 
-      // Bonus : la valeur du sommet actuel (t) est un doublon visible ailleurs
-      // → la couvrir ne fait pas perdre d'information
-      const tNumIsElsewhere=p.defausse.some((d,j)=>{
-        if(j===i) return false;
-        const tj=peek(d);return tj&&tj.num===t.num;
-      })||crNum===t.num;
-      if(tNumIsElsewhere) sc+=5; // doublon visible → couvrir sans perte
+      // As sur As → priorité absolue
+      if(m===1&&n===1){sc=100;if(sc>bs){bs=sc;best=i;}continue;}
 
-      // Malus : la valeur du sommet actuel (t) est unique → la couvrir fait perdre de l'info
-      if(!tNumIsElsewhere) sc-=3;
+      // As sur non-As : quasi-interdit (canOnDefausse bloque déjà, garde-fou)
+      if(m===1&&n!==1){sc=-50;}
+      else {
+        // ── Règle de succession ──
+        if(m===n-1){
+          // Suite naturelle : n-1 sur n → idéal (n reste en dessous, m s'ajoute de façon ordonnée)
+          sc+=15;
+        } else if(m<n){
+          sc+=2; // plus petit mais pas suite → acceptable
+        } else {
+          sc-=10; // plus grand sur plus petit → mauvais
+        }
 
-      // Malus : créer une suite croissante (card vient juste après t) → bloque l'accès à t
-      if(card.num===t.num+1) sc-=4;
+        // ── Ne pas masquer n si colonne vide dispo ET m≠n-1 ──
+        // Si n est sur le chemin et non accessible ailleurs → gros malus
+        if(emptyElsewhere(i)&&m!==n-1){
+          if(chainNums.has(n)&&!accessibleElsewhere(n,i)) sc-=20;
+          else sc-=8; // pas sur le chemin mais colonne vide dispo : préférer le vide quand même
+        }
 
-      // Malus : ne pas couvrir une carte proche de la crapette (utile à garder visible)
-      const target=crNum-1;
-      const distT=(target-t.num+12)%12;
-      if(distT<=3) sc-=4; // valeur précieuse → ne pas couvrir
+        // ── Perte d'accès à n ──
+        if(chainNums.has(n)&&!accessibleElsewhere(n,i)) sc-=12;
 
-      // Bonus : couvrir une carte demandable par l'adversaire
-      if(_wouldBedemandable(t)) sc+=4;
-
-      // Malus : ne pas couvrir avec une valeur déjà visible en défausse soi-même
-      const cardAlreadyVisible=p.defausse.some((d,j)=>{
-        if(j===i) return false;
-        const tj=peek(d);return tj&&tj.num===card.num;
-      });
-      if(cardAlreadyVisible) sc-=2;
-
-      // Bonus : préférer les piles courtes (moins de cartes = plus d'accès)
-      const pileLen=p.defausse[i].length;
-      sc+=Math.max(0,4-pileLen); // pile vide→+4, 1 carte→+3, 2→+2, 3→+1, ≥4→0
-
-      // Malus : si une des 2-3 premières cartes sous le sommet est précieuse
-      // et non disponible ailleurs → préserver l'accès
-      const pile=p.defausse[i];
-      const depth=Math.min(3,pile.length-1); // regarder jusqu'à 3 cartes sous le sommet
-      for(let d=1;d<=depth;d++){
-        const buried=pile[pile.length-1-d];
-        if(!buried) break;
-        const bTarget=(crNum-1);
-        const bDist=(bTarget-buried.num+12)%12;
-        if(bDist<=4){
-          // Carte précieuse enfouie - est-elle disponible ailleurs ?
-          const availableElsewhere=
-            p.hand.some(h=>h.num===buried.num)||
-            p.defausse.some((d2,j)=>j!==i&&d2.some(c2=>c2.num===buried.num))||
-            (crTop&&crTop.num===buried.num);
-          if(!availableElsewhere){
-            sc-=(5-d)*3; // plus elle est proche du sommet, plus le malus est fort
+        // ── Cartes précieuses déjà enfouies dans la pile (jusqu'à 3 niveaux) ──
+        const pile=p.defausse[i];
+        for(let d=1;d<=Math.min(3,pile.length-1);d++){
+          const buried=pile[pile.length-1-d];
+          if(!buried) break;
+          if(chainNums.has(buried.num)&&!accessibleElsewhere(buried.num,i)){
+            sc-=(4-d)*2; // proche du sommet = moins grave car accessible ; profond = grave
           }
         }
+
+        // Bonus : couvrir une carte demandable par l'adversaire (protection)
+        if(_wouldBedemandable(t)) sc+=5;
+
+        // Préférer les piles courtes (plus de cartes accessibles)
+        sc+=Math.max(0,3-p.defausse[i].length);
       }
     }
 
