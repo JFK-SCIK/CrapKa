@@ -460,6 +460,8 @@ function renderBFSeq(){
         return txt;
       }).join('|');
     }
+    const hs=s.handScore||0;
+    html+=' <span style="color:var(--text2);font-size:0.75em">(M:'+(hs>=0?'+':'')+hs.toFixed(0)+')</span>';
     e.innerHTML=html;
     panel.appendChild(e);
     if(s.isBest) bestEl=e;

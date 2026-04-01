@@ -600,6 +600,53 @@ function _sApply(g,ui,pidx,mv){
 // ══════════════════════════════════════════════
 // ÉVALUATION
 // ══════════════════════════════════════════════
+
+// Sous-score "main résiduelle" : critères portant uniquement sur la main de l'IA en fin de séquence
+function _evalHandScore(g,ui,aiIdx){
+  const ai=g.players[aiIdx];
+  const crT=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
+  let sc=0;
+  // Cartes de main jouables sur les piles
+  for(const c of ai.hand) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,c,ci)){sc+=4;break;}
+  // Main vide + pioche dispo
+  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=10;
+  // Taille de main (plus petite = mieux)
+  const handSize=ai.hand.length;
+  sc+=Math.max(0,5-handSize)*4;
+  // Rois si crapette injouable
+  const crPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
+  if(!crPlayable&&handSize>0) sc+=ai.hand.filter(c=>c.num===13).length*10;
+  // Pas de doublon de la crapette, pas de doublons de valeur
+  if(crT&&handSize>0){
+    const handNums=ai.hand.map(c=>c.num);
+    if(!handNums.includes(crT.num)) sc+=8;
+    if(new Set(handNums).size===handNums.length) sc+=5;
+    // Cartes précédant la crapette
+    const prev1=crT.num===1?12:crT.num-1;
+    const prev2=crT.num<=2?crT.num+10:crT.num-2;
+    if(handNums.includes(prev1)) sc+=8;
+    if(handNums.includes(prev2)) sc+=4;
+  }
+  // Couverture de la chaîne vers la crapette par la main résiduelle
+  if(crT){
+    const target=(crT.num-1+12)%12||12;
+    let minDist=12,bestTn=0;
+    for(let ci=0;ci<4;ci++){
+      const tn=_sTopNum(g,ui,ci);
+      if(tn>0&&tn<12){const dist=(target-tn+12)%12;if(dist<minDist){minDist=dist;bestTn=tn;}}
+    }
+    if(minDist>0&&minDist<12){
+      const chainLen=Math.min(5,minDist);
+      const handNums=new Set(ai.hand.map(c=>c.num));
+      for(let step=1;step<=chainLen;step++){
+        const v=((bestTn+step-1)%12)+1;
+        if(v!==crT.num&&handNums.has(v)) sc+=6;
+      }
+    }
+  }
+  return sc;
+}
+
 function _eval(g,ui,aiIdx){
   if(g.phase==='game-over') return g.winner===aiIdx?10000:-10000;
   const ai=g.players[aiIdx],opp=g.players[1-aiIdx];
@@ -607,7 +654,6 @@ function _eval(g,ui,aiIdx){
   sc+=(21-ai.crapette.length)*50-(21-opp.crapette.length)*50;
   const crT=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
   if(crT) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,crT,ci)){sc+=30;break;}
-  for(const c of ai.hand) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,c,ci)){sc+=4;break;}
   const oppCrT=opp.crapette.length?opp.crapette[opp.crapette.length-1]:null;
   if(oppCrT) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,oppCrT,ci)){
     sc-=40; // bloquer la crapette adverse : priorité haute (≈ jouer 1 carte de sa crapette)
@@ -625,8 +671,6 @@ function _eval(g,ui,aiIdx){
       }
     }
   }
-  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=10;
-
   // Bonus : piles activables par une carte visible de l'IA (main ou défausse)
   const aiSrcs=[
     ...ai.hand,
@@ -656,58 +700,14 @@ function _eval(g,ui,aiIdx){
     if(minDist<12) sc+=Math.max(0,(6-minDist)*4); // dist=0→+24, dist=3→+12, dist=6+→0
   }
 
-  // 2+3. Taille de la main (plus petite = mieux) + rois si main non vidée et crapette injouable
-  const crPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
-  const handSize=ai.hand.length;
-  sc+=Math.max(0,5-handSize)*4; // 0 cartes→+20, 5 cartes→0
-  if(!crPlayable&&handSize>0){
-    // Situation bloquée : garder des rois en main > garder d'autres cartes (polyvalents)
-    sc+=ai.hand.filter(c=>c.num===13).length*10;
-  }
-
-  // 4. Main résiduelle : pas de doublon de la crapette (prioritaire) + pas de doublons de valeur
-  if(crT&&handSize>0){
-    const crNum=crT.num;
-    const handNums=ai.hand.map(c=>c.num);
-    if(!handNums.includes(crNum)) sc+=8; // pas de carte de même valeur que la crapette en main
-    if(new Set(handNums).size===handNums.length) sc+=5; // pas de doublons de valeur
-  }
-
-  // 5. Main résiduelle comporte des cartes précédant la crapette (ex. V ou D précède As)
-  if(crT&&handSize>0){
-    const crNum=crT.num;
-    const prev1=crNum===1?12:crNum-1; // carte juste avant crT (cyclique)
-    const prev2=crNum<=2?crNum+10:crNum-2; // deux avant
-    const handNums=ai.hand.map(c=>c.num);
-    if(handNums.includes(prev1)) sc+=8;
-    if(handNums.includes(prev2)) sc+=4;
-  }
-
   // Malus fort : piles vides non initialisées quand la pioche est disponible
-  // (règle : on ne défausse jamais en laissant une pile non retournée)
   if(g.pioche.length>0||g.futurePioche.length>0){
     const emptyPiles=g.commons.filter(p=>!p.length).length;
     if(emptyPiles>0) sc-=emptyPiles*30;
   }
 
-  // Bonus : couverture de la chaîne principale vers la crapette par la main résiduelle
-  // Pour la pile la plus proche, chaque valeur de la chaîne présente en main = +6
-  if(crT){
-    const target=(crT.num-1+12)%12||12;
-    let minDist=12,bestTn=0;
-    for(let ci=0;ci<4;ci++){
-      const tn=_sTopNum(g,ui,ci);
-      if(tn>0&&tn<12){const dist=(target-tn+12)%12;if(dist<minDist){minDist=dist;bestTn=tn;}}
-    }
-    if(minDist>0&&minDist<12){
-      const chainLen=Math.min(5,minDist);
-      const handNums=new Set(ai.hand.map(c=>c.num));
-      for(let step=1;step<=chainLen;step++){
-        const v=((bestTn+step-1)%12)+1;
-        if(v!==crT.num&&handNums.has(v)) sc+=6;
-      }
-    }
-  }
+  // Critères main résiduelle (délégués à _evalHandScore)
+  sc+=_evalHandScore(g,ui,aiIdx);
 
   // Malus : valeurs de la chaîne adverse visibles dans les défausses IA
   // et non déjà visibles chez l'adversaire → dangereux (demandables ou exploitables)
@@ -816,6 +816,7 @@ function _bruteForce(){
     const bestId=best?best.id:null;
     window._dbgBFSequences=terminated.map(s=>({
       score: s.score,
+      handScore: s.handScore||0,
       moves: s.moves,
       isBest: s.id===bestId
     }));
@@ -858,11 +859,11 @@ function _bfExpand(seq,aiIdx){
     lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
   // Aucun coup légal
-  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)}];
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
   // Main vide sans coup 'end' possible → le tour se terminera par redraw
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
-    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)}];
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
   return deduped.map((mv,i)=>{
@@ -880,13 +881,16 @@ function _bfExpand(seq,aiIdx){
     const crapetteBonus=isCrapettePlay?50:0;
     const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
-    const sc=isPiocheDiscovery?_eval(g,ui,aiIdx):_eval(ng,nui,aiIdx);
+    const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
+    const sc=_eval(evalG,evalUi,aiIdx);
+    const hs=willTerminate?_evalHandScore(evalG,evalUi,aiIdx):0;
     return{
       id:seq.id+'.'+i,
       state:{g:ng,ui:nui},
       moves:[...seq.moves,mv],
       terminated:willTerminate,
       score:willTerminate?sc+newBonus:sc,
+      handScore:willTerminate?hs:0,
       extraBonus:newBonus,
       crapettePlayed:seq.crapettePlayed||isCrapettePlay
     };
