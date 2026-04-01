@@ -194,18 +194,19 @@ Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
 - Crapette posée sur Pile → +50
 
 ### Choix de la Défausse (`_aiBestDef`)
-Scores pour choisir sur quelle pile Défausse poser la carte :
+Objectif : maximiser la visibilité et l'accessibilité des cartes sur le chemin de la crapette.
+Scores (par priorité décroissante) :
 - As sur As : +100 (priorité absolue)
-- Pile vide : +5
-- Couvrir un As avec non-As : −10
-- Base (petite sur grande) : +2, (grande sur petite) : +1
-- Doublon visible ailleurs (pas de perte d'info) : +5 ; unique : −3
-- **Suite croissante (card.num = top.num+1) : −4** (bloque l'accès au sommet)
-- Sommet proche de la Crapette (dist ≤ 3) : −4
-- Couvrir une carte demandable adverse : +4
-- Carte déjà visible en propre défausse : −2
-- Pile courte (longueur 0→+4, 1→+3, etc.)
-- Carte précieuse enfouie (non disponible ailleurs) : malus décroissant
+- As sur non-As : −50 (quasi-interdit)
+- Suite naturelle n−1 sur n : +15 (pose ordonnée, accès au sommet préservé)
+- Plus petit (non suite) sur plus grand : +2
+- Plus grand sur plus petit : −10 (éviter)
+- Colonne vide dispo ailleurs ET pose non-naturelle ET sommet sur chemin non accessible : −20
+- Colonne vide dispo ailleurs ET pose non-naturelle (cas général) : −8
+- Perte d'accès à une carte du chemin (non accessible ailleurs) : −12
+- Cartes précieuses enfouies dans la pile (jusqu'à 3 niveaux, chemin, non accessibles) : jusqu'à −6/carte
+- Couvrir une carte demandable adverse : +5 (protection)
+- Pile courte : +3/+2/+1 selon longueur
 
 ### Priorité des coups dans BF (`_bfSortMoves`)
 crapette → init/clear → piles_activant_crapette → autres_piles → demande → défausse (fin de tour)
