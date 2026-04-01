@@ -195,12 +195,22 @@ function clickPioche(){
 
 let _saveDirHandle=null;
 
+function _localTs(){
+  const n=new Date();
+  const pad=v=>String(v).padStart(2,'0');
+  return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())
+    +'_'+pad(n.getHours())+'-'+pad(n.getMinutes())+'-'+pad(n.getSeconds());
+}
+
 // Appelé par le bouton 📁 — geste utilisateur direct, pas d'await avant
 async function chooseSaveDir(){
-  if(!window.showDirectoryPicker){setStatus('Non supporté par ce navigateur');return;}
+  if(!window.showDirectoryPicker){
+    setStatus('📁 Non disponible sur ce navigateur (Firefox). Les saves vont dans Téléchargements.');
+    return;
+  }
   try{
     _saveDirHandle=await window.showDirectoryPicker({id:'crapka-saves',mode:'readwrite',startIn:'documents'});
-    setStatus('📁 Dossier de save: '+_saveDirHandle.name);
+    setStatus('📁 Dossier: '+_saveDirHandle.name+' — actif pour cette session');
   } catch(e){
     if(e.name!=='AbortError') setStatus('Erreur sélection dossier');
   }
@@ -212,9 +222,7 @@ async function saveToFile(){
   const current=_buildUndoSnap();
   const rollback=_undoStack.slice(-2);
   const data={version:1,aiLevel,current,rollback};
-  const now=new Date();
-  const ts=now.toISOString().slice(0,19).replace('T','_').replace(/:/g,'-');
-  const filename='crapka_'+ts+'.json';
+  const filename='crapka_'+_localTs()+'.json';
   const json=JSON.stringify(data,null,2);
 
   if(_saveDirHandle){
@@ -651,8 +659,7 @@ function downloadTrace(){
   const txt=window._traceLog.join('\n');
   const a=document.createElement('a');
   a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
-  const d=new Date();
-  a.download='trace_'+d.toISOString().slice(0,19).replace(/[T:]/g,'-')+'.txt';
+  a.download='trace_'+_localTs()+'.txt';
   a.click();
   setStatus('Trace téléchargée ('+window._traceLog.length+' lignes)');
 }
