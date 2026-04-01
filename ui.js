@@ -668,11 +668,16 @@ function _T(tag,extra){
 }
 function downloadExecTrace(){
   if(!window._execTrace||!window._execTrace.length){setStatus('Exec trace vide');return;}
-  const txt=window._execTrace.join('\n');
+  // BOM UTF-8 pour que Windows ouvre correctement le fichier
+  const bom='\uFEFF';
+  const txt=bom+window._execTrace.join('\n');
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.href=url;
   a.download='exec_'+_localTs()+'.txt';
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
   setStatus('Exec trace téléchargée ('+window._execTrace.length+' lignes)');
 }
 
@@ -692,11 +697,15 @@ function toggleTrace(){
 
 function downloadTrace(){
   if(!window._traceLog||!window._traceLog.length){setStatus('Trace vide');return;}
-  const txt=window._traceLog.join('\n');
+  const bom='\uFEFF';
+  const txt=bom+window._traceLog.join('\n');
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.href=url;
   a.download='trace_'+_localTs()+'.txt';
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
   setStatus('Trace téléchargée ('+window._traceLog.length+' lignes)');
 }
 
