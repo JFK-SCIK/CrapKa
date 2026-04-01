@@ -188,24 +188,50 @@ function clickPioche(){
 // ══════════════════════════════════════════════
 // Sauvegarde vers fichier JSON.
 // Utilise showDirectoryPicker (Chrome/Edge/Firefox 111+) : l'utilisateur
-// choisit le dossier une seule fois, puis les saves suivants s'y écrivent
-// directement sans dialogue. Fallback téléchargement si API indisponible.
+// choisit le dossier une seule fois. Le handle est persisté en IndexedDB
+// pour survivre aux rechargements. Fallback téléchargement si indisponible.
 
-// Handle du dossier saves/ retenu entre les appels
+// Handle du dossier saves/ (cache en mémoire pour la session)
 let _saveDirHandle=null;
 
+function _idbOpen(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('crapka',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('cfg');
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=()=>rej();
+  });
+}
+async function _idbGet(key){
+  try{const db=await _idbOpen();return new Promise((res)=>{const tx=db.transaction('cfg','readonly');const req=tx.objectStore('cfg').get(key);req.onsuccess=()=>res(req.result);req.onerror=()=>res(null);});}
+  catch(e){return null;}
+}
+async function _idbSet(key,val){
+  try{const db=await _idbOpen();new Promise((res)=>{const tx=db.transaction('cfg','readwrite');tx.objectStore('cfg').put(val,key);tx.oncomplete=res;});}
+  catch(e){}
+}
+
 async function _getSaveDir(){
+  // 1. Handle en mémoire
   if(_saveDirHandle){
-    // Vérifier que l'accès est toujours valide
-    try{ await _saveDirHandle.requestPermission({mode:'readwrite'}); return _saveDirHandle; }
-    catch(e){ _saveDirHandle=null; }
+    try{
+      const perm=await _saveDirHandle.requestPermission({mode:'readwrite'});
+      if(perm==='granted') return _saveDirHandle;
+    } catch(e){}
+    _saveDirHandle=null;
   }
+  // 2. Handle persisté en IndexedDB
+  const stored=await _idbGet('saveDirHandle');
+  if(stored){
+    try{
+      const perm=await stored.requestPermission({mode:'readwrite'});
+      if(perm==='granted'){ _saveDirHandle=stored; return _saveDirHandle; }
+    } catch(e){}
+  }
+  // 3. Dialogue de sélection
   try{
-    _saveDirHandle=await window.showDirectoryPicker({
-      id:'crapka-saves',
-      mode:'readwrite',
-      startIn:'documents',
-    });
+    _saveDirHandle=await window.showDirectoryPicker({id:'crapka-saves',mode:'readwrite',startIn:'documents'});
+    await _idbSet('saveDirHandle',_saveDirHandle);
     return _saveDirHandle;
   } catch(e){
     if(e.name==='AbortError') return null;
