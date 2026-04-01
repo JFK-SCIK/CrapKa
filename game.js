@@ -45,10 +45,9 @@ function newGame(vsAI){
       pileKingPending:[false,false,false,false],
       _lastKingInfo:null};
 
-  const deck=shuffle([...makeDeck(),...makeDeck()]);
-  // Chaque joueur a son propre jeu de 52 cartes
-  const deck0=[...deck.splice(0,52)]; // jeu J1
-  const deck1=[...deck];               // jeu J2 (reste)
+  // Chaque joueur a son propre jeu de 52 cartes distinct et mélangé indépendamment
+  const deck0=shuffle(makeDeck()); // jeu J1
+  const deck1=shuffle(makeDeck()); // jeu J2
 
   // J1 : crapette=21, P1+P2=1 carte chacune, main=5, reste=24 → pioche
   const cr0=deck0.splice(0,21);
