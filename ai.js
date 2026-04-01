@@ -19,11 +19,16 @@ function aiPlayTurn(){
   if(!G||G.phase==='game-over'||G.cur!==UI.aiIdx) return;
   _aiMoves=[];
   clearTimeout(_aiTimer);
+  _traceState('aiPlayTurn');
   // Sauvegarder état courant, calculer la séquence, restaurer
   const savedState=_saveGameState();
   _buildAiSequence();
   const moves=[..._aiMoves];
   _restoreGameState(savedState);
+  if(window._traceMode){
+    if(moves.length) moves.forEach((m,i)=>_traceMove('move#'+i,m));
+    else _tlog('  !! Aucun move calculé');
+  }
   // Afficher debug log rois si mode debug
   if(_debugMode&&window._dbgKingLog&&window._dbgKingLog.length){
     window._dbgKingLog.slice(0,5).forEach(l=>addMoveLog(l,'sys'));
@@ -231,6 +236,7 @@ function _buildAiSequence(){
 // Appliquer tous les coups imposés : piles à dame, rois pending, piles vides avec as
 // Ces coups sont déterministes, pas de choix à faire.
 function _applyForcedMoves(){
+  if(window._traceMode) _tlog('  ForcedMoves:');
   let changed=true,iters=0;
   while(changed&&iters<50&&G.phase!=='game-over'){
     changed=false;iters++;
@@ -238,7 +244,9 @@ function _applyForcedMoves(){
     // 1. Vider piles à dame
     for(let ci=0;ci<4;ci++){
       if(topNum(ci)===12){
-        _q({type:'clear',ci});_applyMoveToState(G,UI,{type:'clear',ci});
+        const mv={type:'clear',ci};
+        if(window._traceMode) _tlog('    forced: '+_fmtMove(mv));
+        _q(mv);_applyMoveToState(G,UI,mv);
         changed=true;break;
       }
     }
@@ -899,8 +907,8 @@ function _bruteForce(){
   }
 
   // Stocker les séquences pour le panel debug pas-à-pas
+  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
   if(_debugMode){
-    const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
     const bestId=best?best.id:null;
     window._dbgBFSequences=terminated.map(s=>({
       score: s.score,
@@ -909,6 +917,29 @@ function _bruteForce(){
       isBest: s.id===bestId,
       breakdown: _evalBreakdown(s.state.g,s.state.ui,aiIdx)
     }));
+  }
+
+  // Trace BF
+  if(window._traceMode){
+    const bestId=best?best.id:null;
+    _traceBF(terminated.map(s=>({
+      score:s.score,handScore:s.handScore||0,
+      moves:s.moves,isBest:s.id===bestId
+    })),best,aiIdx);
+    // Vérifier si la crapette est dans une séquence et pourquoi la meilleure ne la joue pas
+    const ai=G.players[aiIdx];
+    const crT=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
+    if(crT){
+      const seqsWithCr=terminated.filter(s=>s.moves.some(m=>m.type==='play'&&m.src&&m.src.type==='crapette'));
+      const bestHasCr=best&&best.moves.some(m=>m.type==='play'&&m.src&&m.src.type==='crapette');
+      _tlog('  Cr='+crT.value+crT.suit+' | séq avec Cr:'+seqsWithCr.length+' | best a Cr:'+bestHasCr);
+      if(!bestHasCr&&seqsWithCr.length>0){
+        const bestCrSeq=seqsWithCr[0];
+        _tlog('  Meilleure séq AVEC Cr: score='+bestCrSeq.score.toFixed(1)+' moves='+bestCrSeq.moves.map(m=>_fmtMove(m)).join('|'));
+        _tlog('  Meilleure séq SANS Cr: score='+(best?best.score.toFixed(1):'?')+' moves='+(best?best.moves.map(m=>_fmtMove(m)).join('|'):'—'));
+        _tlog('  Delta: '+(best&&bestCrSeq?(best.score-bestCrSeq.score).toFixed(1):'?'));
+      }
+    }
   }
 
   return best?best.moves:[];
@@ -942,6 +973,12 @@ function _bfExpand(seq,aiIdx){
   const pidx=g.cur;
   const p=g.players[pidx];
   let lm=_sLegal(g,ui,pidx,false);
+  // Trace uniquement au premier niveau (seq.id==='0') pour ne pas surcharger
+  if(window._traceMode&&seq.id==='0'){
+    _tlog('  Legal[0]: '+lm.map(m=>_fmtMove(m)).join(' | '));
+    const crMoves=lm.filter(m=>m.type==='play'&&m.src&&m.src.type==='crapette');
+    _tlog('  Legal Cr: '+(crMoves.length?crMoves.map(m=>_fmtMove(m)).join(' '):'aucun'));
+  }
 
   // Après une pose de crapette, la carte suivante est invisible → exclure les coups crapette
   if(seq.crapettePlayed)
@@ -1161,6 +1198,10 @@ function _aiDiscard(){
       return sb-sa; // score élevé = défausser en premier
     });
     toDiscard=cands[0];
+    if(window._traceMode){
+      _tlog('  Discard cands: '+cands.map(c=>c.value+c.suit+'('+_discardPriority(c,crNum,opp,aceDanger,p)+')').join(' '));
+      _tlog('  Discard chosen: '+toDiscard.value+toDiscard.suit);
+    }
   }
   // JAMAIS défausser depuis la crapette
   if(!toDiscard){

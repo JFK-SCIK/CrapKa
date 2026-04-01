@@ -566,6 +566,11 @@ function _updateStepUI(){
     tbtn.style.display=_debugMode?'inline-block':'none';
     tbtn.style.background=_bfSeqPinned?'var(--green)':'var(--bg3)';
   }
+  // Boutons trace : visibles en mode debug
+  const btrace=document.getElementById('btn-trace');
+  const btdl=document.getElementById('btn-trace-dl');
+  if(btrace) btrace.style.display=_debugMode?'inline-block':'none';
+  if(btdl) btdl.style.display=(_debugMode&&window._traceLog&&window._traceLog.length)?'inline-block':'none';
 }
 
 function toggleBFSeqPin(){
@@ -593,6 +598,83 @@ function stepNext(){
     _updateStepUI();
     fn();
   }
+}
+
+// ══════════════════════════════════════════════
+// TRACE MODE
+// ══════════════════════════════════════════════
+let _traceMode=false;
+
+function toggleTrace(){
+  _traceMode=!_traceMode;
+  if(_traceMode){window._traceLog=[];window._traceSeq=0;}
+  const btn=document.getElementById('btn-trace');
+  if(btn){btn.style.background=_traceMode?'var(--accent)':'var(--bg3)';btn.textContent=_traceMode?'🔍ON':'🔍';}
+  _updateStepUI();
+  setStatus(_traceMode?'Trace activée — jouez puis téléchargez ⬇':'Trace désactivée');
+}
+
+function downloadTrace(){
+  if(!window._traceLog||!window._traceLog.length){setStatus('Trace vide');return;}
+  const txt=window._traceLog.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  const d=new Date();
+  a.download='trace_'+d.toISOString().slice(0,19).replace(/[T:]/g,'-')+'.txt';
+  a.click();
+  setStatus('Trace téléchargée ('+window._traceLog.length+' lignes)');
+}
+
+// Ajoute une ligne au log trace (si mode trace actif)
+function _tlog(line){
+  if(!_traceMode) return;
+  if(!window._traceLog) window._traceLog=[];
+  window._traceLog.push(line);
+  // Limiter à 5000 lignes pour éviter de saturer la mémoire
+  if(window._traceLog.length>5000) window._traceLog.splice(0,500);
+}
+
+// Trace l'état courant du jeu (compact)
+function _traceState(label){
+  if(!_traceMode||!G) return;
+  const seq=++window._traceSeq;
+  const ai=G.players[UI.aiIdx],hu=G.players[1-UI.aiIdx];
+  const crAI=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
+  const crHU=hu.crapette.length?hu.crapette[hu.crapette.length-1]:null;
+  const piles=G.commons.map((p,i)=>{
+    if(!p.length) return 'P'+(i+1)+':∅';
+    const t=p[p.length-1];
+    const kv=UI.pileKingVal[i];
+    return 'P'+(i+1)+':'+(kv!==null?'R('+kv+')':t.value+t.suit)+'['+p.length+']';
+  }).join(' ');
+  _tlog('');
+  _tlog('══ #'+seq+' '+label+' ══ cur='+G.cur+'('+G.players[G.cur].name+') phase='+G.phase);
+  _tlog('  Piles: '+piles);
+  _tlog('  AI  Cr:'+(crAI?crAI.value+crAI.suit+'('+ai.crapette.length+')'  :'∅')+' Main:['+ai.hand.map(c=>c.value+c.suit).join(' ')+'] Def:['+ai.defausse.map(d=>{const t=d.length?d[d.length-1]:null;return t?t.value+t.suit:'_';}).join(' ')+']');
+  _tlog('  HU  Cr:'+(crHU?crHU.value+crHU.suit+'('+hu.crapette.length+')'  :'∅')+' Main:['+hu.hand.map(c=>c.value+c.suit).join(' ')+'] Def:['+hu.defausse.map(d=>{const t=d.length?d[d.length-1]:null;return t?t.value+t.suit:'_';}).join(' ')+']');
+  _tlog('  Pioche:'+G.pioche.length+' Recyclage:'+G.futurePioche.length);
+  if(G.startDefSnap) _tlog('  StartDef:'+G.startDefSnap.map((p,i)=>{const t=p.length?p[p.length-1]:null;return 'D'+(i+1)+':'+(t?t.value+t.suit:'_');}).join(' '));
+}
+
+// Trace les résultats BF (top séquences)
+function _traceBF(sequences,best,aiIdx){
+  if(!_traceMode) return;
+  _tlog('  BF: '+sequences.length+' séquences terminées');
+  // Top 8
+  const top=sequences.slice(0,8);
+  for(const s of top){
+    const flag=s.isBest?'★ ':'  ';
+    const moves=s.moves.map(m=>_fmtMove(m)).join('|')||'(fin)';
+    _tlog('  '+flag+s.score.toFixed(1)+'[M:'+(s.handScore||0).toFixed(0)+'] '+moves);
+  }
+  if(sequences.length>8) _tlog('  ... ('+(sequences.length-8)+' autres)');
+  if(!best) _tlog('  !! AUCUNE séquence choisie');
+}
+
+// Trace un move appliqué
+function _traceMove(label,mv){
+  if(!_traceMode) return;
+  _tlog('  >> '+label+': '+_fmtMove(mv));
 }
 
 function stepOrPlay(){

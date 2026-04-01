@@ -22,6 +22,8 @@
           <label for="step-check" style="cursor:pointer">PàP</label>
           <button class="btn" id="step-next" onclick="stepOrPlay()" style="display:none;padding:3px 8px;">▶</button>
           <button class="btn" id="btn-seq-toggle" onclick="toggleBFSeqPin()" style="display:none;padding:3px 6px;" title="Afficher/masquer les séquences BF">≡</button>
+          <button class="btn" id="btn-trace" onclick="toggleTrace()" style="display:none;padding:3px 6px;" title="Mode trace IA (log extensif)">🔍</button>
+          <button class="btn" id="btn-trace-dl" onclick="downloadTrace()" style="display:none;padding:3px 6px;" title="Télécharger le log trace">⬇</button>
         </span>
         <button class="btn" id="btn-debug" onclick="toggleDebug()" title="Mode debug">🐛</button>
         <button class="btn" id="btn-undo" onclick="undo()" title="Retour arrière">↩</button>

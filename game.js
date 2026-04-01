@@ -598,5 +598,6 @@ function _restoreFromSnap(s){
   if(s.vsAI!==undefined) UI.vsAI=s.vsAI;
   UI.sel=null;UI.vtgts=[];_animating=false;
   clearTimeout(_aiTimer);_aiMoves=[];
+  _replayingAI=false;_stepResolve=null;
   render();showBtns();
 }
