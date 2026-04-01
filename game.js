@@ -293,7 +293,7 @@ function srcLabel(src){
 // L'état est modifié IMMÉDIATEMENT. L'animation est cosmétique.
 function playOnCommon(card,src,ci,cb){
   if(!canOnCommon(card,ci)){if(cb)cb(false);return false;}
-  if((isHumanTurn()||_replayingAI)&&!window._simulating) saveUndo();
+  if(isHumanTurn()&&!window._simulating) saveUndo();
 
   // Capturer positions AVANT modification d'état
   const fromEl=findCardEl(card,src);
@@ -335,7 +335,7 @@ function playOnCommon(card,src,ci,cb){
 
 // ── Défausser ──
 function discardCard(card,src,di,cb){
-  if((isHumanTurn()||_replayingAI)&&!window._simulating) saveUndo();
+  if(isHumanTurn()&&!window._simulating) saveUndo();
   const p=G.players[G.cur];
   // Seule la main peut être défaussée (pas la crapette, pas une défausse)
   if(src.type!=='hand'){if(cb)cb(false);return false;}
@@ -372,14 +372,14 @@ function clearCommonNoLog(ci){
   setTimeout(()=>{_animating=false;},200);
 }
 function clearCommon(ci){
-  if((isHumanTurn()||_replayingAI)&&!window._simulating) saveUndo();
+  if(isHumanTurn()&&!window._simulating) saveUndo();
   clearCommonNoLog(ci);
   addMoveLog('P'+(ci+1)+'→♻️',P_COLORS[G.cur]);
 }
 
 // ── Initialiser pile vide ──
 function initCommon(ci,card,src,cb){
-  if((isHumanTurn()||_replayingAI)&&!window._simulating) saveUndo();
+  if(isHumanTurn()&&!window._simulating) saveUndo();
   if(card){
     const fromEl=findCardEl(card,src);
     const toEl=document.querySelector(`[data-common="${ci}"]`);

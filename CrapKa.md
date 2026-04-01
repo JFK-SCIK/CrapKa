@@ -214,7 +214,8 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 
 ### Sauvegardes / Undo
 - `saveUndo()` / `_buildUndoSnap()` / `_restoreFromSnap(s)` : undo complet
-- 20 niveaux d'undo, sauvegardé avant chaque action (humain ou IA)
+- 20 niveaux d'undo, sauvegardé avant chaque action **humain uniquement** (pas pendant le replay IA)
+- Un seul snapshot IA par tour : celui du début de `aiPlayTurn()` — annuler revient au début du tour IA entier
 - `localStorage` : `crapka_debug` pour le dernier snap
 - Sauvegarde/chargement fichier JSON (`saveToFile` / `loadFromFile`)
 
