@@ -255,6 +255,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | B3 | ✅ fait | **Coup inutile avant crapette** — `_bfSortMoves` reçoit l'état et classe les coups de pile en "activent la crapette" (avant) et "autres" (après). `handPlayBonus` passe de +15 flat à +25 (activant) / +5 (autre) → les séquences qui jouent la crapette sans pré-coup inutile dominent. |
 | B4 | ✅ fait | **Défausse sans retourner pile vide** — `_eval` pénalise −30/pile vide quand la pioche est disponible → le BF choisit toujours d'init une pile vide avant de terminer. |
 | B5 | ✅ fait | **Priorités défausse / main résiduelle** — Nouveau helper `_chainValsForPlayer(pidx)` : valeurs utiles sur min(5,dist) pas depuis la pile la plus proche. `_discardPriority` +3 critères : −20 si carte unique dans ma chaîne, −15 si carte dans chaîne adverse non visible chez l'adversaire, +20 si défausser laisse seulement des rois (→ redraw). `_eval` +2 critères : +6/valeur de chaîne présente en main, −8/valeur chaîne adverse visible en défausse IA non visible chez l'adversaire. |
+| B6 | ✅ fait | **Non-répétabilité + coups manquants dans le log** — Deux bugs distincts découverts par analyse de la trace d'exécution :<br>• `_aiDiscard` appliquait les coups de pile directement sur `G` via `_applyMoveToState(G,UI,...)` pendant `_simulating=true` → log supprimé, puis `_replayMoves` échouait à les rejouer (`canOnCommon` false) → coups invisibles dans le log. Fix : sauvegarder/restaurer G autour de `_aiDiscard()`.<br>• En PàP, après le coup `discard`, `_stepResolve=()=>_replayMoves([])` était posé alors que `nextPlayer` avait déjà changé G.cur → closure zombie survivant tout le tour humain → au tour IA suivant, ▶ déclenchait `_replayMoves([])` au lieu de `aiPlayTurn` → `_aiDiscard` sans BF → séquence erronée jouée d'un bloc. Fix : ne pas poser `_stepResolve` après un coup `discard`. |
 
 ### Divers UI/UX (ordre de traitement)
 
@@ -268,6 +269,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | D6 | À faire | Sauvegarde partie + paramètres en localStorage (cookie). |
 | D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
 | D8 | ✅ fait | Animation victoire : overlay `#victory-overlay` avec fade-in + scale-up CSS, 300ms après le game-over. `showMenu()` supprime l'overlay. |
+| D9 | ✅ fait | **Modal de démarrage** — `showStartModal(first, reason)` affiché au lancement de chaque partie : indique qui commence et pourquoi, avec cases à cocher Debug 🐛 et Pas-à-pas ▶ (PàP visible seulement en mode vs IA). Bouton "▶ Lancer la partie" applique les options puis démarre. |
 
 ### Long terme
 - Suite descendante en Défausse (règle optionnelle)
