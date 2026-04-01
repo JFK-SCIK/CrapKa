@@ -187,12 +187,31 @@ function clickPioche(){
 // SAUVEGARDES — FICHIERS
 // ══════════════════════════════════════════════
 // Sauvegarde vers fichier JSON.
-// Utilise showSaveFilePicker (Chrome/Edge) avec dossier saves/ mémorisé,
-// ou fallback téléchargement classique (Firefox).
-// Le fichier contient : état courant + 2 niveaux de rollback + niveau IA.
+// Utilise showDirectoryPicker (Chrome/Edge/Firefox 111+) : l'utilisateur
+// choisit le dossier une seule fois, puis les saves suivants s'y écrivent
+// directement sans dialogue. Fallback téléchargement si API indisponible.
 
-// Handle du dossier saves/ retenu entre les appels (API File System Access)
+// Handle du dossier saves/ retenu entre les appels
 let _saveDirHandle=null;
+
+async function _getSaveDir(){
+  if(_saveDirHandle){
+    // Vérifier que l'accès est toujours valide
+    try{ await _saveDirHandle.requestPermission({mode:'readwrite'}); return _saveDirHandle; }
+    catch(e){ _saveDirHandle=null; }
+  }
+  try{
+    _saveDirHandle=await window.showDirectoryPicker({
+      id:'crapka-saves',
+      mode:'readwrite',
+      startIn:'documents',
+    });
+    return _saveDirHandle;
+  } catch(e){
+    if(e.name==='AbortError') return null;
+    return null;
+  }
+}
 
 async function saveToFile(){
   if(!G){setStatus('Pas de partie en cours');return;}
@@ -205,33 +224,20 @@ async function saveToFile(){
   const filename='crapka_'+ts+'.json';
   const json=JSON.stringify(data,null,2);
 
-  // Tenter File System Access API (Chrome/Edge)
-  if(window.showSaveFilePicker){
-    try{
-      // Si on a déjà un handle sur le dossier saves/, l'utiliser directement
-      let fh;
-      if(_saveDirHandle){
-        try{
-          fh=await _saveDirHandle.getFileHandle(filename,{create:true});
-        } catch(e){ _saveDirHandle=null; }
-      }
-      if(!fh){
-        fh=await window.showSaveFilePicker({
-          suggestedName:filename,
-          types:[{description:'JSON',accept:{'application/json':['.json']}}],
-        });
-        // Mémoriser le dossier parent pour les prochains appels
-        try{ _saveDirHandle=await fh.getParent(); } catch(e){}
-      }
-      const w=await fh.createWritable();
-      await w.write(json);
-      await w.close();
-      setStatus('💾 Sauvegardé: '+filename);
-      addMoveLog('💾 Sauvegarde: '+filename,'sys');
-      return;
-    } catch(e){
-      if(e.name==='AbortError') return; // utilisateur a annulé
-      // Autre erreur → fallback
+  if(window.showDirectoryPicker){
+    const dir=await _getSaveDir();
+    if(dir){
+      try{
+        const fh=await dir.getFileHandle(filename,{create:true});
+        const w=await fh.createWritable();
+        await w.write(json);
+        await w.close();
+        setStatus('💾 Sauvegardé: '+filename);
+        addMoveLog('💾 Sauvegarde: '+filename,'sys');
+        return;
+      } catch(e){ /* fallback */ }
+    } else {
+      return; // annulé par l'utilisateur
     }
   }
   // Fallback : téléchargement classique
