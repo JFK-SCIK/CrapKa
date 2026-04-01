@@ -204,6 +204,17 @@ body{
 #mbox h2{color:var(--gold);margin-bottom:10px;font-size:1.1rem;}
 #mbox p{color:var(--text2);margin-bottom:14px;font-size:0.85rem;}
 #mbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+/* BF TOOLTIP */
+#bf-tip{
+  position:fixed;z-index:900;pointer-events:none;
+  background:#0d1b2a;border:1px solid rgba(255,255,255,0.18);
+  border-radius:5px;padding:5px 8px;
+  font-size:0.58rem;font-family:monospace;line-height:1.55;
+  color:var(--text);white-space:pre;
+  box-shadow:0 4px 16px rgba(0,0,0,0.6);
+  display:none;
+}
+#bf-tip.visible{display:block;}
 /* VICTORY OVERLAY (D8) */
 #victory-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:600;

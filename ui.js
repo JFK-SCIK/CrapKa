@@ -424,6 +424,24 @@ function showBtns(){
 // LOG
 // ══════════════════════════════════════════════
 let _moveCount=0;
+// ── Tooltip BF ──────────────────────────────────────────────────────────────
+let _bfTip=null;
+function _getBFTip(){
+  if(!_bfTip){
+    _bfTip=document.createElement('div');
+    _bfTip.id='bf-tip';
+    document.body.appendChild(_bfTip);
+    document.addEventListener('mousemove',e=>{
+      if(!_bfTip.classList.contains('visible')) return;
+      const x=e.clientX+14,y=e.clientY+10;
+      const tw=_bfTip.offsetWidth,th=_bfTip.offsetHeight;
+      _bfTip.style.left=Math.min(x,window.innerWidth-tw-6)+'px';
+      _bfTip.style.top=(y+th>window.innerHeight?e.clientY-th-6:y)+'px';
+    });
+  }
+  return _bfTip;
+}
+
 function renderBFSeq(){
   const panel=document.getElementById('seqlog');
   const seqs=window._dbgBFSequences;
@@ -446,6 +464,7 @@ function renderBFSeq(){
   for(const s of seqs){
     const e=document.createElement('div');
     e.className='mle '+(s.isBest?'bf-best':'bf-other');
+    if(s.breakdown) e.dataset.eval=s.breakdown;
     // Score
     let html=s.score.toFixed(1)+'#';
     if(!s.moves.length){
@@ -463,6 +482,13 @@ function renderBFSeq(){
     const hs=s.handScore||0;
     html+=' <span style="color:var(--text2);font-size:0.75em">(M:'+(hs>=0?'+':'')+hs.toFixed(0)+')</span>';
     e.innerHTML=html;
+    e.addEventListener('mouseenter',()=>{
+      if(!e.dataset.eval) return;
+      const tip=_getBFTip();
+      tip.textContent=e.dataset.eval;
+      tip.classList.add('visible');
+    });
+    e.addEventListener('mouseleave',()=>_getBFTip().classList.remove('visible'));
     panel.appendChild(e);
     if(s.isBest) bestEl=e;
   }

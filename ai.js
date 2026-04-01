@@ -647,6 +647,94 @@ function _evalHandScore(g,ui,aiIdx){
   return sc;
 }
 
+// Détail du score pour le tooltip — retourne une string multi-ligne
+function _evalBreakdown(g,ui,aiIdx){
+  if(g.phase==='game-over') return g.winner===aiIdx?'🏆 Victoire: +10000':'💀 Défaite: −10000';
+  const ai=g.players[aiIdx],opp=g.players[1-aiIdx];
+  const crT=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
+  const oppCrT=opp.crapette.length?opp.crapette[opp.crapette.length-1]:null;
+  const L=[],fmt=(v)=>(v>=0?'+':'')+v;
+  function add(label,v){if(v!==0)L.push(label+': '+fmt(v));}
+
+  // Crapette relative
+  const crSc=(21-ai.crapette.length)*50-(21-opp.crapette.length)*50;
+  add('Cr '+ai.crapette.length+'→'+opp.crapette.length,crSc);
+
+  // Crapette IA jouable
+  let crPlay=0;
+  if(crT) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,crT,ci)){crPlay=30;break;}
+  add('Cr jouable ('+( crT?crT.value:'∅')+')',crPlay);
+
+  // Crapette adverse jouable
+  let oppPlay=0;
+  if(oppCrT) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,oppCrT,ci)){oppPlay=-40;break;}
+  add('Cr adv jouable ('+(oppCrT?oppCrT.value:'∅')+')',oppPlay);
+
+  // Piles dist circulaire
+  let pDist=0;
+  if(crT){const tgt=(crT.num-1+12)%12||12;for(let ci=0;ci<4;ci++){const tn=_sTopNum(g,ui,ci);if(tn>0&&tn<12){const d=(tgt-tn+12)%12;pDist+=Math.max(0,(11-d)*2);}}}
+  add('Piles dist',pDist);
+
+  // Piles activables
+  const aiSrcs=[...ai.hand,...ai.defausse.map(d=>d.length?d[d.length-1]:null).filter(Boolean)];
+  let activ=0;
+  for(let ci=0;ci<4;ci++){const tn=_sTopNum(g,ui,ci);if(tn>0&&tn<12&&aiSrcs.some(c=>c.num===tn+1))activ+=8;}
+  add('Piles activables',activ);
+
+  // Diversité défausses
+  const dv=new Set(ai.defausse.map(d=>d.length?d[d.length-1].num:null).filter(n=>n!==null)).size;
+  add('Déf diversité',dv*3);
+
+  // Min dist
+  let minD=12;
+  if(crT){const tgt=(crT.num-1+12)%12||12;for(let ci=0;ci<4;ci++){const tn=_sTopNum(g,ui,ci);if(tn>0&&tn<12)minD=Math.min(minD,(tgt-tn+12)%12);}}
+  add('Min dist pile',minD<12?Math.max(0,(6-minD)*4):0);
+
+  // Malus piles vides
+  if(g.pioche.length>0||g.futurePioche.length>0){const e=g.commons.filter(p=>!p.length).length;add('Piles vides',-e*30);}
+
+  // Malus chaîne adverse
+  let chainAdv=0;
+  if(oppCrT){
+    const tgt=(oppCrT.num-1+12)%12||12;let od=12,otn=0;
+    for(let ci=0;ci<4;ci++){const tn=_sTopNum(g,ui,ci);if(tn>0&&tn<12){const d=(tgt-tn+12)%12;if(d<od){od=d;otn=tn;}}}
+    if(od>0&&od<12){const cv=new Set();for(let s=1;s<=Math.min(5,od);s++){const v=((otn+s-1)%12)+1;if(v!==oppCrT.num)cv.add(v);}
+      for(const d of ai.defausse){const t=d.length?d[d.length-1]:null;if(!t||!cv.has(t.num))continue;
+        const vis=opp.defausse.some(od2=>{const ot=od2.length?od2[od2.length-1]:null;return ot&&ot.num===t.num;})
+          ||(opp.crapette.length&&opp.crapette[opp.crapette.length-1].num===t.num);
+        if(!vis)chainAdv-=8;}}
+  }
+  add('Chaîne adv',chainAdv);
+
+  // Détail main résiduelle
+  L.push('── Main ('+ai.hand.map(c=>c.value).join(' ')+') ──');
+  const handSize=ai.hand.length;
+  let mj=0;for(const c of ai.hand)for(let ci=0;ci<4;ci++)if(_sCanOnCommon(g,ui,c,ci)){mj+=4;break;}
+  add('  Jouables',mj);
+  if(handSize===0&&(g.pioche.length>0||g.futurePioche.length>0))L.push('  Vide: +10');
+  add('  Taille('+handSize+')',Math.max(0,5-handSize)*4);
+  const crPlayable2=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
+  if(!crPlayable2&&handSize>0){const rk=ai.hand.filter(c=>c.num===13).length;add('  Rois',rk*10);}
+  if(crT&&handSize>0){
+    const hn=ai.hand.map(c=>c.num);
+    add('  NoDupCr',hn.includes(crT.num)?0:8);
+    add('  NoDupVal',new Set(hn).size===hn.length?5:0);
+    const p1=crT.num===1?12:crT.num-1,p2=crT.num<=2?crT.num+10:crT.num-2;
+    add('  Prev1('+p1+')',hn.includes(p1)?8:0);
+    add('  Prev2('+p2+')',hn.includes(p2)?4:0);
+  }
+  // Couverture chaîne
+  if(crT){
+    const tgt=(crT.num-1+12)%12||12;let md=12,bTn=0;
+    for(let ci=0;ci<4;ci++){const tn=_sTopNum(g,ui,ci);if(tn>0&&tn<12){const d=(tgt-tn+12)%12;if(d<md){md=d;bTn=tn;}}}
+    if(md>0&&md<12){const hn=new Set(ai.hand.map(c=>c.num));let ch=0;
+      for(let s=1;s<=Math.min(5,md);s++){const v=((bTn+s-1)%12)+1;if(v!==crT.num&&hn.has(v))ch+=6;}
+      add('  Chaine cov',ch);}
+  }
+
+  return L.join('\n');
+}
+
 function _eval(g,ui,aiIdx){
   if(g.phase==='game-over') return g.winner===aiIdx?10000:-10000;
   const ai=g.players[aiIdx],opp=g.players[1-aiIdx];
@@ -818,7 +906,8 @@ function _bruteForce(){
       score: s.score,
       handScore: s.handScore||0,
       moves: s.moves,
-      isBest: s.id===bestId
+      isBest: s.id===bestId,
+      breakdown: _evalBreakdown(s.state.g,s.state.ui,aiIdx)
     }));
   }
 
