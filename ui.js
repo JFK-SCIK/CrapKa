@@ -576,8 +576,9 @@ function toggleDebug(){
   // Afficher/masquer les contrôles pas-à-pas
   document.getElementById('step-controls').style.display=_debugMode?'flex':'none';
   if(_debugMode){
-    _etStart=Date.now(); window._execTrace=[];
+    _etStart=Date.now(); window._execTrace=[]; window._traceSeq=0;
     _T('toggleDebug:ON');
+    _traceState('debug:ON');
     // Afficher le panel immédiatement si épinglé
     if(_bfSeqPinned) hideBFSeq(); // affiche "en attente" et rend visible
   } else {
@@ -663,7 +664,7 @@ function _T(tag,extra){
   const s='sR='+(_stepResolve?'T':'F')+' rAI='+(_replayingAI?'T':'F')+' sM='+(_stepMode?'T':'F');
   const line='[+'+ms+'ms] '+tag+' | '+s+(extra?' | '+extra:'');
   window._execTrace.push(line);
-  if(window._execTrace.length>1000) window._execTrace.shift();
+  if(window._execTrace.length>2000) window._execTrace.shift();
 }
 function downloadExecTrace(){
   if(!window._execTrace||!window._execTrace.length){setStatus('Exec trace vide');return;}
@@ -699,18 +700,23 @@ function downloadTrace(){
   setStatus('Trace téléchargée ('+window._traceLog.length+' lignes)');
 }
 
-// Ajoute une ligne au log trace (si mode trace actif)
+// Ajoute une ligne au log trace — écrit dans exec trace ET _traceLog (si _traceMode)
 function _tlog(line){
+  if(_debugMode){
+    if(!window._execTrace) window._execTrace=[];
+    window._execTrace.push(line);
+    if(window._execTrace.length>2000) window._execTrace.shift();
+  }
   if(!_traceMode) return;
   if(!window._traceLog) window._traceLog=[];
   window._traceLog.push(line);
-  // Limiter à 5000 lignes pour éviter de saturer la mémoire
   if(window._traceLog.length>5000) window._traceLog.splice(0,500);
 }
 
-// Trace l'état courant du jeu (compact)
+// Trace l'état courant du jeu — actif dès que _debugMode (pas besoin de 🔍)
 function _traceState(label){
-  if(!_traceMode||!G) return;
+  if(!_debugMode||!G) return;
+  if(!window._traceSeq) window._traceSeq=0;
   const seq=++window._traceSeq;
   const ai=G.players[UI.aiIdx],hu=G.players[1-UI.aiIdx];
   const crAI=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
@@ -722,7 +728,7 @@ function _traceState(label){
     return 'P'+(i+1)+':'+(kv!==null?'R('+kv+')':t.value+t.suit)+'['+p.length+']';
   }).join(' ');
   _tlog('');
-  _tlog('══ #'+seq+' '+label+' ══ cur='+G.cur+'('+G.players[G.cur].name+') phase='+G.phase);
+  _tlog('══ #'+seq+' '+label+' ══ cur='+G.cur+'('+G.players[G.cur].name+') phase='+G.phase+' sR='+(_stepResolve?'T':'F')+' rAI='+(_replayingAI?'T':'F'));
   _tlog('  Piles: '+piles);
   _tlog('  AI  Cr:'+(crAI?crAI.value+crAI.suit+'('+ai.crapette.length+')'  :'∅')+' Main:['+ai.hand.map(c=>c.value+c.suit).join(' ')+'] Def:['+ai.defausse.map(d=>{const t=d.length?d[d.length-1]:null;return t?t.value+t.suit:'_';}).join(' ')+']');
   _tlog('  HU  Cr:'+(crHU?crHU.value+crHU.suit+'('+hu.crapette.length+')'  :'∅')+' Main:['+hu.hand.map(c=>c.value+c.suit).join(' ')+'] Def:['+hu.defausse.map(d=>{const t=d.length?d[d.length-1]:null;return t?t.value+t.suit:'_';}).join(' ')+']');
@@ -732,9 +738,8 @@ function _traceState(label){
 
 // Trace les résultats BF (top séquences)
 function _traceBF(sequences,best,aiIdx){
-  if(!_traceMode) return;
+  if(!_debugMode) return;
   _tlog('  BF: '+sequences.length+' séquences terminées');
-  // Top 8
   const top=sequences.slice(0,8);
   for(const s of top){
     const flag=s.isBest?'★ ':'  ';
@@ -747,7 +752,7 @@ function _traceBF(sequences,best,aiIdx){
 
 // Trace un move appliqué
 function _traceMove(label,mv){
-  if(!_traceMode) return;
+  if(!_debugMode) return;
   _tlog('  >> '+label+': '+_fmtMove(mv));
 }
 
