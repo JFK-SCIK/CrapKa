@@ -481,7 +481,12 @@ function nextPlayer(){
   G.cur=1-G.cur;G.phase='play';
   UI.sel=null;UI.vtgts=[];
   drawToFive(()=>{
-    render();setStatus(`Tour de ${G.players[G.cur].name}`);showBtns();
+    render();showBtns();
+    if(UI.vsAI&&G.cur===UI.aiIdx&&(_stepMode&&_debugMode)){
+      setStatus('[PàP] Tour de '+G.players[G.cur].name+' — ▶ pour lancer');
+    } else {
+      setStatus('Tour de '+G.players[G.cur].name);
+    }
     if(UI.vsAI&&G.cur===UI.aiIdx&&!(_stepMode&&_debugMode)) setTimeout(aiPlayTurn,300);
     if(_debugMode) _updateStepUI();
   });

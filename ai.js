@@ -97,9 +97,13 @@ function _replayMoves(moves){
     _replayingAI=false;
     if(G.phase!=='game-over'&&G.cur===UI.aiIdx){
       // Défausse : calculée sur l'état réel courant
+      // _aiDiscard mute G directement → sauvegarder/restaurer pour que _replayMoves puisse
+      // rejouer les coups proprement (avec animation et log)
       window._simulating=true;
       _aiMoves=[];
+      const _discardStateSave=_saveGameState();
       _aiDiscard();
+      _restoreGameState(_discardStateSave);
       window._simulating=false;
       const discardMoves=[..._aiMoves];
       _aiMoves=[];
@@ -141,6 +145,11 @@ function _replayMoves(moves){
         _stepResolve=()=>{hideBFSeq();aiPlayTurn();};
         _T('_replayMoves:sR=disco->aiPlayTurn');
         setStatus('[PàP] Découverte — ▶ pour recalculer');
+      } else if(mv.type==='discard'){
+        // nextPlayer a déjà changé G.cur → ne pas poser de stepResolve zombie
+        // Le prochain tour IA sera géré par nextPlayer→aiPlayTurn (ou ▶ via stepOrPlay)
+        _T('_replayMoves:discard-turn-end','no stepResolve set');
+        _replayingAI=false;
       } else {
         _T('_replayMoves:pap-move-wait','left='+moves.length);
         _stepResolve=()=>_replayMoves(moves);
