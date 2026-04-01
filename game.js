@@ -96,7 +96,7 @@ function newGame(vsAI){
   addMoveLog('═ Début de partie','sys');
   addMoveLog(`${G.players[first].name} commence (${reason})`,'sys');
   render();setStatus(`${G.players[first].name} commence (${reason}) !`);showBtns();
-  if(UI.vsAI&&G.cur===UI.aiIdx) setTimeout(aiPlayTurn,500);
+  showStartModal(first, reason);
 }
 
 // Règle de mise en place : plus petite crapette → 1re carte de pile → 2e carte de pile → aléatoire

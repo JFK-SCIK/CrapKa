@@ -797,6 +797,45 @@ function showModal(title,body,btns){
   document.getElementById('movl').classList.add('on');
 }
 function closeModal(){document.getElementById('movl').classList.remove('on');}
+
+function showStartModal(first, reason){
+  const name=G.players[first].name;
+  const vsAI=UI.vsAI;
+  document.getElementById('mtitle').textContent='🃏 Début de partie';
+  const body=document.getElementById('mbody');
+  body.innerHTML=
+    '<b style="font-size:1.1em">'+name+'</b> commence'
+    +'<br><span style="color:var(--text2);font-size:0.85em">'+reason+'</span>'
+    +'<div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;text-align:left;">'
+      +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+        +'<input type="checkbox" id="sm-debug"'+(  _debugMode?' checked':'')+'>'
+        +'<span>Mode debug 🐛 (cartes IA visibles + log)</span>'
+      +'</label>'
+      +(vsAI
+        ?'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+          +'<input type="checkbox" id="sm-pap"'+(  _stepMode?' checked':'')+'>'
+          +'<span>Pas-à-pas IA ▶</span>'
+         +'</label>'
+        :'')
+    +'</div>';
+  const el=document.getElementById('mbtns');
+  el.innerHTML='';
+  const btn=document.createElement('button');
+  btn.className='btn red';
+  btn.style.cssText='padding:10px 28px;font-size:1rem;margin-top:6px;';
+  btn.textContent='▶ Lancer la partie';
+  btn.onclick=()=>{
+    const wantDebug=!!document.getElementById('sm-debug').checked;
+    const wantPap=vsAI&&!!document.getElementById('sm-pap').checked;
+    closeModal();
+    if(wantDebug!==_debugMode) toggleDebug();
+    if(vsAI&&wantPap!==_stepMode){_stepMode=wantPap;_updateStepUI();}
+    if(UI.vsAI&&G.cur===UI.aiIdx) setTimeout(aiPlayTurn,300);
+  };
+  el.appendChild(btn);
+  document.getElementById('movl').classList.add('on');
+}
+
 function showMenu(){
   closeModal();
   const ov=document.getElementById('victory-overlay');if(ov)ov.remove();
