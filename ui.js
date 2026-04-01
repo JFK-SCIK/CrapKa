@@ -187,55 +187,22 @@ function clickPioche(){
 // SAUVEGARDES — FICHIERS
 // ══════════════════════════════════════════════
 // Sauvegarde vers fichier JSON.
-// Utilise showDirectoryPicker (Chrome/Edge/Firefox 111+) : l'utilisateur
-// choisit le dossier une seule fois. Le handle est persisté en IndexedDB
-// pour survivre aux rechargements. Fallback téléchargement si indisponible.
+// Le dossier de destination est choisi via un bouton 📁 dédié
+// (showDirectoryPicker doit être appelé directement depuis un clic,
+//  sans await préalable qui consommerait le geste utilisateur).
+// Le handle est gardé en mémoire pour la session.
+// Fallback téléchargement classique si pas de dossier configuré.
 
-// Handle du dossier saves/ (cache en mémoire pour la session)
 let _saveDirHandle=null;
 
-function _idbOpen(){
-  return new Promise((res,rej)=>{
-    const req=indexedDB.open('crapka',1);
-    req.onupgradeneeded=e=>e.target.result.createObjectStore('cfg');
-    req.onsuccess=e=>res(e.target.result);
-    req.onerror=()=>rej();
-  });
-}
-async function _idbGet(key){
-  try{const db=await _idbOpen();return new Promise((res)=>{const tx=db.transaction('cfg','readonly');const req=tx.objectStore('cfg').get(key);req.onsuccess=()=>res(req.result);req.onerror=()=>res(null);});}
-  catch(e){return null;}
-}
-async function _idbSet(key,val){
-  try{const db=await _idbOpen();new Promise((res)=>{const tx=db.transaction('cfg','readwrite');tx.objectStore('cfg').put(val,key);tx.oncomplete=res;});}
-  catch(e){}
-}
-
-async function _getSaveDir(){
-  // 1. Handle en mémoire
-  if(_saveDirHandle){
-    try{
-      const perm=await _saveDirHandle.requestPermission({mode:'readwrite'});
-      if(perm==='granted') return _saveDirHandle;
-    } catch(e){}
-    _saveDirHandle=null;
-  }
-  // 2. Handle persisté en IndexedDB
-  const stored=await _idbGet('saveDirHandle');
-  if(stored){
-    try{
-      const perm=await stored.requestPermission({mode:'readwrite'});
-      if(perm==='granted'){ _saveDirHandle=stored; return _saveDirHandle; }
-    } catch(e){}
-  }
-  // 3. Dialogue de sélection
+// Appelé par le bouton 📁 — geste utilisateur direct, pas d'await avant
+async function chooseSaveDir(){
+  if(!window.showDirectoryPicker){setStatus('Non supporté par ce navigateur');return;}
   try{
     _saveDirHandle=await window.showDirectoryPicker({id:'crapka-saves',mode:'readwrite',startIn:'documents'});
-    await _idbSet('saveDirHandle',_saveDirHandle);
-    return _saveDirHandle;
+    setStatus('📁 Dossier de save: '+_saveDirHandle.name);
   } catch(e){
-    if(e.name==='AbortError') return null;
-    return null;
+    if(e.name!=='AbortError') setStatus('Erreur sélection dossier');
   }
 }
 
@@ -250,21 +217,16 @@ async function saveToFile(){
   const filename='crapka_'+ts+'.json';
   const json=JSON.stringify(data,null,2);
 
-  if(window.showDirectoryPicker){
-    const dir=await _getSaveDir();
-    if(dir){
-      try{
-        const fh=await dir.getFileHandle(filename,{create:true});
-        const w=await fh.createWritable();
-        await w.write(json);
-        await w.close();
-        setStatus('💾 Sauvegardé: '+filename);
-        addMoveLog('💾 Sauvegarde: '+filename,'sys');
-        return;
-      } catch(e){ /* fallback */ }
-    } else {
-      return; // annulé par l'utilisateur
-    }
+  if(_saveDirHandle){
+    try{
+      const fh=await _saveDirHandle.getFileHandle(filename,{create:true});
+      const w=await fh.createWritable();
+      await w.write(json);
+      await w.close();
+      setStatus('💾 Sauvegardé: '+filename);
+      addMoveLog('💾 Sauvegarde: '+filename,'sys');
+      return;
+    } catch(e){ _saveDirHandle=null; /* permission perdue → fallback */ }
   }
   // Fallback : téléchargement classique
   const blob=new Blob([json],{type:'application/json'});
