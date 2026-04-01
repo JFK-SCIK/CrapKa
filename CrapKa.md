@@ -227,10 +227,17 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 - Mode pas-à-pas (case PàP + bouton ▶)
 - **Panel séquences BF** : liste toutes les séquences terminées triées par score
   - Crapette = gras rouge, autres découvertes = gras
+  - Score total + `(M:+XX)` part main résiduelle en fin de ligne
+  - Survol → tooltip détail des critères d'évaluation (`data-eval`)
   - Épinglé par défaut (`_bfSeqPinned=true`) : reste visible, affiche "en attente…" entre les tours
   - En PàP, reste visible jusqu'à la pause "Défausse — ▶" (les séquences ne disparaissent pas entre les coups)
   - Bouton `≡` pour afficher/masquer
 - Log demandes : `[D] BUILD`, `[D] sWP di=...`
+- **Trace BF** (bouton 🔍) : log extensif des séquences BF + top 8 choix, téléchargeable via ⬇
+- **Exec trace** (bouton 📊) : buffer circulaire 1000 entrées actif dès que `_debugMode=true`
+  - Format : `[+Nms] TAG | sR=T/F rAI=T/F sM=T/F | extra`
+  - Couvre : `aiPlayTurn`, `_replayMoves` (chaque coup), `_applyMoveWithAnim`, tous les `_stepResolve=` et `_stepResolve()`, timers setTimeout, `hideBFSeq`, `renderBFSeq`, `stepOrPlay`, `stepNext`, `undo`, `_restoreFromSnap`, `nextPlayer`
+  - Téléchargeable en JSON texte via 📊 (visible dès qu'il y a des données)
 
 ## Animations
 - `flyCard(card, fromR, toR, cb)` : animation de vol CSS

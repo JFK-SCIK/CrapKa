@@ -13,10 +13,11 @@ let _stepResolve=null; // callback en attente du clic "suivant"
 let _bfSeqPinned=true; // panel séquences épinglé (ne se masque pas automatiquement)
 
 function aiPlayTurn(){
-  if(_stepResolve!==null) return; // pas-à-pas en cours, ignorer
+  _T('aiPlayTurn:entry','cur='+G?.cur+' phase='+G?.phase);
+  if(_stepResolve!==null){_T('aiPlayTurn:blocked','_stepResolve set');return;} // pas-à-pas en cours, ignorer
   saveUndo(); // sauvegarder avant chaque tour IA
   _replayingAI=false; // reset au cas où
-  if(!G||G.phase==='game-over'||G.cur!==UI.aiIdx) return;
+  if(!G||G.phase==='game-over'||G.cur!==UI.aiIdx){_T('aiPlayTurn:skip','phase='+G?.phase+' cur='+G?.cur);return;}
   _aiMoves=[];
   clearTimeout(_aiTimer);
   _traceState('aiPlayTurn');
@@ -43,11 +44,14 @@ function aiPlayTurn(){
   if(_debugMode) renderBFSeq();
   // En mode pas-à-pas debug : attendre ▶ avant de jouer
   if(_stepMode&&_debugMode){
+    _T('aiPlayTurn:pap-wait','moves='+moves.length);
     _stepResolve=()=>_replayMoves(moves);
+    _T('aiPlayTurn:sR=replayMoves('+moves.length+')');
     _updateStepUI();
     setStatus('[PàP] '+(window._dbgBFSequences?window._dbgBFSequences.length:0)+' séquence(s) — ▶ pour jouer');
     return;
   }
+  _T('aiPlayTurn:direct-replay','moves='+moves.length);
   _replayMoves(moves);
 }
 
@@ -88,6 +92,7 @@ function _restoreGameState(s){
 }
 
 function _replayMoves(moves){
+  _T('_replayMoves:entry','remaining='+moves.length+' phase='+G?.phase);
   if(!moves.length||G.phase==='game-over'){
     _replayingAI=false;
     if(G.phase!=='game-over'&&G.cur===UI.aiIdx){
@@ -101,11 +106,14 @@ function _replayMoves(moves){
       if(discardMoves.length){
         // PàP : pause avant la défausse, séquences BF encore visibles
         if(_stepMode&&_debugMode){
+          _T('_replayMoves:pap-discard-wait');
           _stepResolve=()=>{hideBFSeq();_replayingAI=true;_replayMoves(discardMoves);};
+          _T('_replayMoves:sR=discard('+discardMoves.length+')');
           setStatus('[PàP] Défausse — ▶ pour jouer');
           _updateStepUI();
           return;
         }
+        _T('_replayMoves:direct-discard','discards='+discardMoves.length);
         hideBFSeq();
         _replayingAI=true;
         _replayMoves(discardMoves);
@@ -121,6 +129,7 @@ function _replayMoves(moves){
   const _discovery=(mv.type==='play'&&mv.src&&mv.src.type==='crapette')
     ||(mv.type==='init'&&!mv.card)
     ||(mv.type==='redraw');
+  _T('_replayMoves:apply','mv='+mv.type+(mv.card?'['+mv.card.value+mv.card.suit+']':'')+(mv.src?' src='+mv.src.type:'')+' disco='+_discovery+' left='+moves.length);
   _applyMoveWithAnim(mv,()=>{
     const delay=flyDur>0?flyDur+150:100;
     // Toujours mettre à jour le panel en mode debug
@@ -128,18 +137,24 @@ function _replayMoves(moves){
     if(_stepMode&&_debugMode){
       // Pause après le coup : attendre ▶
       if(_discovery){
+        _T('_replayMoves:pap-disco-wait');
         _stepResolve=()=>{hideBFSeq();aiPlayTurn();};
+        _T('_replayMoves:sR=disco->aiPlayTurn');
         setStatus('[PàP] Découverte — ▶ pour recalculer');
       } else {
+        _T('_replayMoves:pap-move-wait','left='+moves.length);
         _stepResolve=()=>_replayMoves(moves);
+        _T('_replayMoves:sR=continue('+moves.length+')');
         setStatus('[PàP] Coup joué — ▶ pour continuer');
       }
       _updateStepUI();
     } else {
       if(_discovery){
+        _T('_replayMoves:timer-aiPlayTurn','delay='+delay);
         hideBFSeq();
         _aiTimer=setTimeout(aiPlayTurn,delay);
       } else {
+        _T('_replayMoves:timer-continue','left='+moves.length+' delay='+delay);
         _aiTimer=setTimeout(()=>_replayMoves(moves),delay);
       }
     }
@@ -147,6 +162,7 @@ function _replayMoves(moves){
 }
 
 function _applyMoveWithAnim(mv,cb){
+  _T('_applyMoveWithAnim','type='+mv.type+(mv.card?'['+mv.card.value+mv.card.suit+']':''));
   if(mv.type==='play'){
     playOnCommon(mv.card,mv.src,mv.ci,()=>cb());
   } else if(mv.type==='redraw'){

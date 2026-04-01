@@ -483,6 +483,7 @@ function _getBFTip(){
 }
 
 function renderBFSeq(){
+  _T('renderBFSeq','seqs='+(window._dbgBFSequences?window._dbgBFSequences.length:0));
   const panel=document.getElementById('seqlog');
   const seqs=window._dbgBFSequences;
   if(!panel) return;
@@ -537,6 +538,7 @@ function renderBFSeq(){
 }
 
 function hideBFSeq(){
+  _T('hideBFSeq','pinned='+_bfSeqPinned);
   window._dbgBFSequences=null;
   if(_bfSeqPinned&&_debugMode){
     // Panel épinglé en debug : on garde la visibilité mais on vide les lignes
@@ -574,6 +576,8 @@ function toggleDebug(){
   // Afficher/masquer les contrôles pas-à-pas
   document.getElementById('step-controls').style.display=_debugMode?'flex':'none';
   if(_debugMode){
+    _etStart=Date.now(); window._execTrace=[];
+    _T('toggleDebug:ON');
     // Afficher le panel immédiatement si épinglé
     if(_bfSeqPinned) hideBFSeq(); // affiche "en attente" et rend visible
   } else {
@@ -611,6 +615,9 @@ function _updateStepUI(){
   const btdl=document.getElementById('btn-trace-dl');
   if(btrace) btrace.style.display=_debugMode?'inline-block':'none';
   if(btdl) btdl.style.display=(_debugMode&&window._traceLog&&window._traceLog.length)?'inline-block':'none';
+  // Bouton exec trace download : visible si buffer non vide
+  const betdl=document.getElementById('btn-etrace-dl');
+  if(betdl) betdl.style.display=(_debugMode&&window._execTrace&&window._execTrace.length)?'inline-block':'none';
 }
 
 function toggleBFSeqPin(){
@@ -627,17 +634,45 @@ function toggleBFSeqPin(){
 
 function toggleStepMode(){
   _stepMode=document.getElementById('step-check').checked;
+  _T('toggleStepMode','sM='+_stepMode);
   _updateStepUI();
   setStatus(_stepMode?'Pas-à-pas activé — cliquez ▶ pour chaque coup IA':'Pas-à-pas désactivé');
 }
 
 function stepNext(){
   if(_stepResolve){
+    _T('stepNext:fire','calling resolve');
     const fn=_stepResolve;
     _stepResolve=null;
+    _T('stepNext:sR=null');
     _updateStepUI();
     fn();
+  } else {
+    _T('stepNext:no-resolve');
   }
+}
+
+// ══════════════════════════════════════════════
+// EXEC TRACE — buffer circulaire 1000 entrées, actif si _debugMode
+// ══════════════════════════════════════════════
+let _etStart=Date.now();
+function _T(tag,extra){
+  if(!_debugMode) return;
+  if(!window._execTrace) window._execTrace=[];
+  const ms=Date.now()-_etStart;
+  const s='sR='+(_stepResolve?'T':'F')+' rAI='+(_replayingAI?'T':'F')+' sM='+(_stepMode?'T':'F');
+  const line='[+'+ms+'ms] '+tag+' | '+s+(extra?' | '+extra:'');
+  window._execTrace.push(line);
+  if(window._execTrace.length>1000) window._execTrace.shift();
+}
+function downloadExecTrace(){
+  if(!window._execTrace||!window._execTrace.length){setStatus('Exec trace vide');return;}
+  const txt=window._execTrace.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.download='exec_'+_localTs()+'.txt';
+  a.click();
+  setStatus('Exec trace téléchargée ('+window._execTrace.length+' lignes)');
 }
 
 // ══════════════════════════════════════════════
@@ -717,6 +752,7 @@ function _traceMove(label,mv){
 }
 
 function stepOrPlay(){
+  _T('stepOrPlay',_stepResolve?'has-resolve':'no-resolve rAI='+_replayingAI);
   if(_stepResolve) stepNext();
   // Ne pas relancer aiPlayTurn pendant un replay en cours (animation entre deux étapes)
   else if(!_replayingAI&&UI.vsAI&&G&&G.cur===UI.aiIdx) aiPlayTurn();

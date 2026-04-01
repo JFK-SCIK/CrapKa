@@ -433,8 +433,10 @@ function loadDebugSnap(){
 }
 
 function undo(){
+  _T('undo:entry','stack='+_undoStack.length);
   const s=_undoStack.length?_undoStack.pop():loadDebugSnap();
   if(!s){setStatus('Rien à annuler');return;}
+  _T('undo:restore','restoring cur='+s.cur+' stack-after='+_undoStack.length);
   _restoreFromSnap(s);
   setStatus('↩ Situation restaurée');
   addMoveLog('↩ Retour arrière','sys');
@@ -473,6 +475,7 @@ function endTurnViaDiscard(card,src,di,afterCb){
 }
 
 function nextPlayer(){
+  _T('nextPlayer:entry','cur='+G.cur+'->'+( 1-G.cur));
   addMoveLog(`── Tour ${G.players[1-G.cur].name}→${G.players[1-G.cur===0?1:0].name}`,'turn-sep');
   saveSnap();
   G.cur=1-G.cur;G.phase='play';
@@ -566,6 +569,7 @@ function _buildUndoSnap(){
 }
 
 function _restoreFromSnap(s){
+  _T('_restoreFromSnap:entry','cur='+s?.cur);
   if(!s) return;
   if(!G||!G.players){
     G={
@@ -599,5 +603,6 @@ function _restoreFromSnap(s){
   UI.sel=null;UI.vtgts=[];_animating=false;
   clearTimeout(_aiTimer);_aiMoves=[];
   _replayingAI=false;_stepResolve=null;
+  _T('_restoreFromSnap:done','cur='+G.cur+' sR=null rAI=false');
   render();showBtns();
 }
