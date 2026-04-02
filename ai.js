@@ -11,6 +11,7 @@ let _replayingAI=false; // true pendant le replay des moves IA
 let _stepMode=false;  // mode pas-à-pas IA
 let _stepResolve=null; // callback en attente du clic "suivant"
 let _bfSeqPinned=true; // panel séquences épinglé (ne se masque pas automatiquement)
+let _waitingToStart=false; // true entre la création de la partie et le clic "Lancer"
 
 function aiPlayTurn(){
   _T('aiPlayTurn:entry','cur='+G?.cur+' phase='+G?.phase);
