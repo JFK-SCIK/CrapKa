@@ -837,9 +837,9 @@ function showStartModal(first, reason){
   box.appendChild(btn);
   panel.appendChild(box);
 
-  // S'insère dans #game-col pour ne pas couvrir le header
-  const col=document.getElementById('game-col');
-  if(col){col.style.position='relative';col.appendChild(panel);}
+  // S'insère dans #game (pas #game-col) pour ne pas couvrir le header
+  const gameDiv=document.getElementById('game');
+  if(gameDiv){gameDiv.style.position='relative';gameDiv.appendChild(panel);}
   else document.body.appendChild(panel);
 }
 
