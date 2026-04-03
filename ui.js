@@ -293,7 +293,13 @@ function render(){
   html+=renderPzone(topIdx);
   html+=renderMiddle();
   html+=renderPzone(botIdx);
-  document.getElementById('game').innerHTML=html;
+  const gameDiv=document.getElementById('game');
+  gameDiv.innerHTML=html;
+  // Ré-attacher le panneau de démarrage s'il existe (render() détruit innerHTML)
+  if(_waitingToStart&&_startPanel){
+    gameDiv.style.position='relative';
+    gameDiv.appendChild(_startPanel);
+  }
   showBtns();
   // Recalculer layout après chaque rendu (les éléments DOM existent maintenant)
   requestAnimationFrame(computeLayout);
@@ -798,9 +804,12 @@ function showModal(title,body,btns){
 }
 function closeModal(){document.getElementById('movl').classList.remove('on');}
 
+let _startPanel=null;
+
 function showStartModal(first, reason){
   _waitingToStart=true;
   // Supprimer un éventuel panneau résiduel
+  if(_startPanel){_startPanel.remove();_startPanel=null;}
   const old=document.getElementById('start-panel');if(old)old.remove();
 
   const name=G.players[first].name;
@@ -826,7 +835,7 @@ function showStartModal(first, reason){
   btn.style.cssText='padding:10px 32px;font-size:1rem;margin-top:4px;';
   btn.textContent='▶ Lancer la partie';
   btn.onclick=()=>{
-    panel.remove();
+    panel.remove();_startPanel=null;
     _waitingToStart=false;
     if(UI.vsAI&&G.cur===UI.aiIdx){
       if(_stepMode&&_debugMode) setStatus('[PàP] Tour de '+G.players[G.cur].name+' — ▶ pour lancer');
@@ -836,6 +845,7 @@ function showStartModal(first, reason){
 
   box.appendChild(btn);
   panel.appendChild(box);
+  _startPanel=panel;
 
   // S'insère dans #game (pas #game-col) pour ne pas couvrir le header
   const gameDiv=document.getElementById('game');
@@ -846,7 +856,7 @@ function showStartModal(first, reason){
 function showMenu(){
   closeModal();
   const ov=document.getElementById('victory-overlay');if(ov)ov.remove();
-  const sp=document.getElementById('start-panel');if(sp)sp.remove();
+  if(_startPanel){_startPanel.remove();_startPanel=null;}
   _waitingToStart=false;
   clearTimeout(_aiTimer);G=null;UI.sel=null;setStatus('Bienvenue !');renderMenu();
 }
