@@ -192,6 +192,7 @@ Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
 - Tout coup (Main OU Défausse) activant la crapette → +25 (source-agnostique)
 - Autre carte de Main posée sur Pile (sans activation) → +5
 - Crapette posée sur Pile → +50
+- Roi de Main joué sans activer la crapette → −25 (règle : ne jouer R que pour Crapette ou vider Main)
 
 ### Choix de la Défausse (`_aiBestDef`)
 Objectif : maximiser la visibilité et l'accessibilité des cartes sur le chemin de la crapette.
@@ -256,6 +257,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | B3 | ✅ fait | **Coup inutile avant crapette** — `_bfSortMoves` reçoit l'état et classe les coups de pile en "activent la crapette" (avant) et "autres" (après). `handPlayBonus` passe de +15 flat à +25 (activant) / +5 (autre) → les séquences qui jouent la crapette sans pré-coup inutile dominent. |
 | B4 | ✅ fait | **Défausse sans retourner pile vide** — `_eval` pénalise −30/pile vide quand la pioche est disponible → le BF choisit toujours d'init une pile vide avant de terminer. |
 | B5 | ✅ fait | **Priorités défausse / main résiduelle** — Nouveau helper `_chainValsForPlayer(pidx)` : valeurs utiles sur min(5,dist) pas depuis la pile la plus proche. `_discardPriority` +3 critères : −20 si carte unique dans ma chaîne, −15 si carte dans chaîne adverse non visible chez l'adversaire, +20 si défausser laisse seulement des rois (→ redraw). `_eval` +2 critères : +6/valeur de chaîne présente en main, −8/valeur chaîne adverse visible en défausse IA non visible chez l'adversaire. |
+| B7 | ✅ fait | **Roi de main joué sans avantage** — L'IA jouait un Roi depuis la main même sans activer la crapette ni vider la main. La perte de +10 (roi-en-main, `_evalHandScore`) était compensée par des gains de position pile. Fix : malus −25 dans `extraBonus` pour tout Roi de main joué sans `activatesCrapette`. La séquence qui vide la main via le Roi reste naturellement découverte par le BF (bonus `redraw`). |
 | B6 | ✅ fait | **Non-répétabilité + coups manquants dans le log** — Deux bugs distincts découverts par analyse de la trace d'exécution :<br>• `_aiDiscard` appliquait les coups de pile directement sur `G` via `_applyMoveToState(G,UI,...)` pendant `_simulating=true` → log supprimé, puis `_replayMoves` échouait à les rejouer (`canOnCommon` false) → coups invisibles dans le log. Fix : sauvegarder/restaurer G autour de `_aiDiscard()`.<br>• En PàP, après le coup `discard`, `_stepResolve=()=>_replayMoves([])` était posé alors que `nextPlayer` avait déjà changé G.cur → closure zombie survivant tout le tour humain → au tour IA suivant, ▶ déclenchait `_replayMoves([])` au lieu de `aiPlayTurn` → `_aiDiscard` sans BF → séquence erronée jouée d'un bloc. Fix : ne pas poser `_stepResolve` après un coup `discard`. |
 
 ### Divers UI/UX (ordre de traitement)

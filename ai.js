@@ -1034,7 +1034,11 @@ function _bfExpand(seq,aiIdx){
     const activatesCrapette=!crWasPlayable&&crNowPlayable;
     const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
     const crapetteBonus=isCrapettePlay?50:0;
-    const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus;
+    // Malus Roi de main joué sans activer la crapette : stratégiquement mauvais sauf si
+    // la séquence vide la main (ce que le BF trouvera naturellement via redraw bonus).
+    // Règle : "on ne joue pas les Rois s'ils ne permettent pas de mettre la Crapette ou de vider la Main"
+    const kingFromHandPenalty=(isHandPlay&&mv.card.num===13&&!activatesCrapette)?-25:0;
+    const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus+kingFromHandPenalty;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
     const sc=_eval(evalG,evalUi,aiIdx);
