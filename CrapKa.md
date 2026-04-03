@@ -270,7 +270,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | D6 | À faire | Sauvegarde partie + paramètres en localStorage (cookie). |
 | D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
 | D8 | ✅ fait | Animation victoire : overlay `#victory-overlay` avec fade-in + scale-up CSS, 300ms après le game-over. `showMenu()` supprime l'overlay. |
-| D9 | ✅ fait | **Modal de démarrage** — `showStartModal(first, reason)` affiché au lancement de chaque partie : indique qui commence et pourquoi, avec cases à cocher Debug 🐛 et Pas-à-pas ▶ (PàP visible seulement en mode vs IA). Bouton "▶ Lancer la partie" applique les options puis démarre. |
+| D9 | ✅ fait | **Panneau de démarrage non-bloquant** — `showStartModal(first, reason)` affiche un overlay positionné sur `#game` uniquement (header accessible). Indique qui commence et pourquoi. Bouton "▶ Lancer la partie" démarre. Contrôles debug/PàP/trace du header restent cliquables pendant l'attente. Les cartes sont non-jouables tant que `_waitingToStart=true` (guard dans `isHumanTurn()`). Le panneau (`_startPanel`) survit aux appels `render()` : référence globale réinjectée dans `#game` à chaque rendu. `showMenu()` nettoie `_startPanel` et `_waitingToStart`. |
 
 ### Long terme
 - Suite descendante en Défausse (règle optionnelle)
