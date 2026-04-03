@@ -1023,13 +1023,16 @@ function _bfExpand(seq,aiIdx){
     // Tirage pioche : carte inconnue → termine la séquence, score l'état AVANT tirage
     const isPiocheDiscovery=(mv.type==='init'&&!mv.card)||mv.type==='redraw';
     const {g:ng,ui:nui}=_sApply(g,ui,pidx,mv);
-    // Bonus cumulés : crapette→pile (+50), main→pile activant crapette (+25), autre main→pile (+5)
+    // Bonus cumulés : crapette→pile (+50), tout coup activant crapette (+25), autre main→pile (+5)
+    // Note : le bonus d'activation (+25) s'applique quelle que soit la source (main OU défausse),
+    // car jouer 2 depuis la défausse sur un As vaut autant que jouer un Roi depuis la main.
     const crTb=!isCrapettePlay&&g.players[aiIdx].crapette.length
       ?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
     const crWasPlayable=crTb&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crTb,ci2));
     const crNowPlayable=crTb&&ng.commons.some((_,ci2)=>_sCanOnCommon(ng,nui,crTb,ci2));
-    const handPlayBonus=(mv.type==='play'&&mv.src&&mv.src.type==='hand')
-      ?((!crWasPlayable&&crNowPlayable)?25:5):0;
+    const isHandPlay=mv.type==='play'&&mv.src?.type==='hand';
+    const activatesCrapette=!crWasPlayable&&crNowPlayable;
+    const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
     const crapetteBonus=isCrapettePlay?50:0;
     const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
@@ -1051,7 +1054,7 @@ function _bfExpand(seq,aiIdx){
 
 // Trie les coups par catégorie de priorité :
 // crapette → init/clear → piles_activant_crapette → autres_piles → demande → défausse
-// Les coups qui activent directement la crapette sont triés avant les autres coups de pile.
+// "piles_activant_crapette" inclut main ET défausse : toute source qui rend la crapette jouable.
 function _bfSortMoves(moves,g,ui,aiIdx){
   const crT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
   const crAlreadyPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));

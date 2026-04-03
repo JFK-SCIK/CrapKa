@@ -189,8 +189,8 @@ L'IA utilise exclusivement un BFS sur toutes les séquences possibles (`BF_MAX_A
 
 ### Bonus de séquence (`extraBonus`)
 Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
-- Carte de Main posée sur Pile activant la crapette → +25
-- Autre carte de Main posée sur Pile → +5
+- Tout coup (Main OU Défausse) activant la crapette → +25 (source-agnostique)
+- Autre carte de Main posée sur Pile (sans activation) → +5
 - Crapette posée sur Pile → +50
 
 ### Choix de la Défausse (`_aiBestDef`)
