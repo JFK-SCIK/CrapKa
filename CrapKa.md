@@ -192,7 +192,7 @@ Accumulé au cours d'une séquence BF, ajouté au score à la terminaison :
 - Tout coup (Main OU Défausse) activant la crapette → +25 (source-agnostique)
 - Autre carte de Main posée sur Pile (sans activation) → +5
 - Crapette posée sur Pile → +50
-- Roi de Main joué sans activer la crapette → −25 (règle : ne jouer R que pour Crapette ou vider Main)
+- Roi de Main joué sans activer la crapette → −35 (règle : ne jouer R que pour Crapette ou vider Main)
 
 ### Choix de la Défausse (`_aiBestDef`)
 Objectif : maximiser la visibilité et l'accessibilité des cartes sur le chemin de la crapette.
