@@ -1177,21 +1177,17 @@ function _aiDiscard(){
       }
     }
     if(moved) continue;
-    // Jouer cartes jouables depuis la main — meilleure pile (non-rois d'abord)
+    // Jouer cartes jouables depuis la main — hors Rois (le BF les aurait inclus si bénéfiques)
     {
       const allMoves=[];
       for(const card of p.hand){
+        if(card.num===13) continue; // Rois exclus : jamais jouer en phase défausse
         for(let ci=0;ci<4;ci++)
           if(canOnCommon(card,ci))
             allMoves.push({type:'play',card,src:{type:'hand'},ci});
       }
       if(allMoves.length){
-        // Non-rois d'abord, puis rois ; stable par (card.uid, ci)
-        allMoves.sort((a,b)=>{
-          if(a.card.num===13&&b.card.num!==13) return 1;
-          if(a.card.num!==13&&b.card.num===13) return -1;
-          return a.card.uid-b.card.uid||a.ci-b.ci;
-        });
+        allMoves.sort((a,b)=>a.card.uid-b.card.uid||a.ci-b.ci);
         const best=allMoves[0];
         _q(best);_applyMoveToState(G,UI,best);
         moved=true;
