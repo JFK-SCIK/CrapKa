@@ -1151,9 +1151,23 @@ function _applyMoveToState(g,ui,mv){
 
 function _findAce(){
   const p=G.players[G.cur];
+  // Crapette toujours prioritaire
   const ct=peek(p.crapette);if(ct&&ct.num===1)return{card:ct,src:{type:'crapette'}};
-  for(let i=0;i<4;i++){const t=peek(p.defausse[i]);if(t&&t.num===1)return{card:t,src:{type:'defausse',index:i}};}
-  const h=p.hand.find(c=>c.num===1);if(h)return{card:h,src:{type:'hand'}};
+  // Trouver As de main et de défausse
+  const handAce=p.hand.find(c=>c.num===1);
+  let defAce=null,defAceIdx=-1;
+  for(let i=0;i<4;i++){const t=peek(p.defausse[i]);if(t&&t.num===1){defAce=t;defAceIdx=i;break;}}
+  // Si les deux disponibles : main prioritaire SAUF si la carte cachée sous l'As de défausse
+  // est jouable sur une pile commune (elle resterait inaccessible si on utilise la défausse en dernier)
+  if(handAce&&defAce){
+    const pile=p.defausse[defAceIdx];
+    const hidden=pile.length>=2?pile[pile.length-2]:null;
+    const hiddenUseful=hidden&&_handCardIsPlayable(hidden);
+    if(hiddenUseful) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
+    return{card:handAce,src:{type:'hand'}};
+  }
+  if(handAce) return{card:handAce,src:{type:'hand'}};
+  if(defAce) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
   return null;
 }
 
