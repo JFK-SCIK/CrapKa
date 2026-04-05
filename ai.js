@@ -1163,6 +1163,7 @@ function _findAce(){
     const pile=p.defausse[defAceIdx];
     const hidden=pile.length>=2?pile[pile.length-2]:null;
     const hiddenUseful=hidden&&_handCardIsPlayable(hidden);
+    if(_debugMode) addMoveLog('[findAce] hand=A defausse['+defAceIdx+']=A hidden='+(hidden?hidden.value+hidden.suit:'∅')+' hiddenUseful='+hiddenUseful,'sys');
     if(hiddenUseful) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
     return{card:handAce,src:{type:'hand'}};
   }
