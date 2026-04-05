@@ -1018,6 +1018,19 @@ function _bfExpand(seq,aiIdx){
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
+  // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
+  // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
+  const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
+  const _baseCrAlready=_baseCrT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,_baseCrT,ci));
+  let _nonKingActivates=false;
+  if(_baseCrT&&!_baseCrAlready){
+    for(const m of deduped){
+      if(m.type==='play'&&m.src?.type==='hand'&&m.card.num!==13){
+        const{g:tg,ui:tui}=_sApply(g,ui,pidx,m);
+        if(tg.commons.some((_,ci)=>_sCanOnCommon(tg,tui,_baseCrT,ci))){_nonKingActivates=true;break;}
+      }
+    }
+  }
   return deduped.map((mv,i)=>{
     const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
     // Tirage pioche : carte inconnue → termine la séquence, score l'état AVANT tirage
@@ -1034,10 +1047,13 @@ function _bfExpand(seq,aiIdx){
     const activatesCrapette=!crWasPlayable&&crNowPlayable;
     const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
     const crapetteBonus=isCrapettePlay?50:0;
-    // Malus Roi de main joué sans activer la crapette : stratégiquement mauvais sauf si
-    // la séquence vide la main (ce que le BF trouvera naturellement via redraw bonus).
-    // Règle : "on ne joue pas les Rois s'ils ne permettent pas de mettre la Crapette ou de vider la Main"
-    const kingFromHandPenalty=(isHandPlay&&mv.card.num===13&&!activatesCrapette)?-35:0;
+    // Malus Roi de main :
+    // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
+    // • Activation, mais un non-Roi active aussi → −15 (préférer garder le Roi en main)
+    // • Activation et seul le Roi peut activer → 0 (le Roi est nécessaire ici)
+    const kingFromHandPenalty=isHandPlay&&mv.card.num===13
+      ?(!activatesCrapette?-35:(_nonKingActivates?-15:0))
+      :0;
     const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus+kingFromHandPenalty;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
