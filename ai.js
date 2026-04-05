@@ -544,16 +544,24 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Piles vides : as d'abord (toutes sources), sinon pioche
-  // On génère un coup par As disponible (main, défausse, crapette) :
-  // le BF explorera toutes les options et choisira la meilleure.
+  // Piles vides : as d'abord, sinon pioche.
+  // Priorité absolue : As de MAIN > As de défausse/crapette.
+  // Un As en main ne peut servir qu'à initialiser une pile vide → on l'utilise en priorité.
+  // L'As de défausse reste disponible pour les tours futurs.
+  // Si plusieurs As de main : un seul coup (piles vides sont interchangeables → dedup).
   for(let ci=0;ci<4;ci++){
     if(!g.commons[ci].length){
       const srcs=_sSources(g,pidx,visibleOnly);
-      const aces=srcs.filter(({card})=>card.num===1);
-      if(aces.length){
-        for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-      } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
+      const handAces=srcs.filter(({card,src})=>card.num===1&&src.type==='hand');
+      if(handAces.length){
+        // As de main disponible → utiliser main uniquement
+        for(const ace of handAces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+      } else {
+        const aces=srcs.filter(({card})=>card.num===1);
+        if(aces.length){
+          for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+        } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
+      }
     }
   }
 
