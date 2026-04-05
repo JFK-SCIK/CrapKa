@@ -986,7 +986,20 @@ function _bruteForce(){
 // Supprime les coups dupliqués de la liste :
 // - main : deux cartes de même valeur sur la même pile → résultats identiques (règles num-only)
 // - défausse : poser sur deux piles vides différentes → résultat identique
-function _bfDedup(moves,p,g){
+// Vérifie si la carte cachée sous le sommet d'une défausse est jouable sur une pile commune
+function _defHidesUseful(g,ui,pidx,defIdx){
+  const pile=g.players[pidx].defausse[defIdx];
+  if(pile.length<2) return false;
+  const hidden=pile[pile.length-2];
+  for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,hidden,ci)) return true;
+  return false;
+}
+
+function _bfDedup(moves,p,g,ui){
+  // Pré-calculer les défausses où la carte cachée est utile
+  // (pour ces défausses, jouer depuis défausse est préférable à main → ne pas dedup)
+  const defHidesUseful=g&&ui?[0,1,2,3].map(i=>_defHidesUseful(g,ui,g.cur,i)):[false,false,false,false];
+
   const seen=new Set();
   const out=[];
   for(const mv of moves){
@@ -999,9 +1012,23 @@ function _bfDedup(moves,p,g){
       const empty=p.defausse[mv.di].length===0;
       key='end:'+mv.card.num+':'+(empty?'E':mv.di);
     } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
-      // As de défausse sur pile vide : piles vides équivalentes → E (par uid de l'As)
       const pileEmpty=g&&!g.commons[mv.ci].length;
-      key=pileEmpty?'pdf:'+mv.card.uid+':E':null;
+      if(pileEmpty){
+        // Pile vide : piles équivalentes → E (par uid)
+        key='pdf:'+mv.card.uid+':E';
+      } else {
+        // Pile non-vide : si même valeur en main ET défausse ne cache rien d'utile
+        // → éliminer la version défausse (main prioritaire)
+        const defIdx=mv.src.index;
+        const hidesUseful=defHidesUseful[defIdx];
+        const handAlsoHas=p.hand.some(c=>c.num===mv.card.num);
+        if(handAlsoHas&&!hidesUseful){
+          key='skip-def-for-hand'; // sera ignoré car déjà vu (ou jamais vu mais forcé skip)
+          // Astuce : ne pas ajouter à out directement — utiliser un marqueur unique pour skip
+          continue; // sauter ce coup, la version main sera utilisée
+        }
+        key=null; // garder tel quel
+      }
     } else if(mv.type==='init'){
       // Init pioche sur pile vide : toutes piles vides identiques
       key='init:E';
@@ -1037,7 +1064,7 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
@@ -1163,8 +1190,7 @@ function _findAce(){
     const pile=p.defausse[defAceIdx];
     const hidden=pile.length>=2?pile[pile.length-2]:null;
     const hiddenUseful=hidden&&_handCardIsPlayable(hidden);
-    if(_debugMode) addMoveLog('[findAce] hand=A defausse['+defAceIdx+']=A hidden='+(hidden?hidden.value+hidden.suit:'∅')+' hiddenUseful='+hiddenUseful,'sys');
-    if(hiddenUseful) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
+if(hiddenUseful) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
     return{card:handAce,src:{type:'hand'}};
   }
   if(handAce) return{card:handAce,src:{type:'hand'}};
