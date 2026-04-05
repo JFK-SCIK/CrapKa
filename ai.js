@@ -544,13 +544,16 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Piles vides : as d'abord (visible), sinon pioche (un seul choix)
+  // Piles vides : as d'abord (toutes sources), sinon pioche
+  // On génère un coup par As disponible (main, défausse, crapette) :
+  // le BF explorera toutes les options et choisira la meilleure.
   for(let ci=0;ci<4;ci++){
     if(!g.commons[ci].length){
       const srcs=_sSources(g,pidx,visibleOnly);
-      const ace=srcs.find(({card})=>card.num===1);
-      if(ace) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-      else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
+      const aces=srcs.filter(({card})=>card.num===1);
+      if(aces.length){
+        for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+      } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
     }
   }
 
@@ -975,20 +978,29 @@ function _bruteForce(){
 // Supprime les coups dupliqués de la liste :
 // - main : deux cartes de même valeur sur la même pile → résultats identiques (règles num-only)
 // - défausse : poser sur deux piles vides différentes → résultat identique
-function _bfDedup(moves,p){
+function _bfDedup(moves,p,g){
   const seen=new Set();
   const out=[];
   for(const mv of moves){
     let key;
     if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
-      key='ph:'+mv.card.num+':'+mv.ci;
+      // Sur pile vide (init d'As) : toutes les piles vides sont équivalentes → E
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
     } else if(mv.type==='end'){
       const empty=p.defausse[mv.di].length===0;
       key='end:'+mv.card.num+':'+(empty?'E':mv.di);
+    } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
+      // As de défausse sur pile vide : piles vides équivalentes → E (par uid de l'As)
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      key=pileEmpty?'pdf:'+mv.card.uid+':E':null;
+    } else if(mv.type==='init'){
+      // Init pioche sur pile vide : toutes piles vides identiques
+      key='init:E';
     } else {
       out.push(mv); continue;
     }
-    if(!seen.has(key)){seen.add(key);out.push(mv);}
+    if(key===null||!seen.has(key)){if(key)seen.add(key);out.push(mv);}
   }
   return out;
 }
@@ -1017,7 +1029,7 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
