@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.0';
+const _VER_AI='1.2.1';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -545,13 +545,15 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Piles vides : as d'abord (premier trouvé), sinon pioche
+  // Piles vides : tous les As disponibles (main + défausse + crapette), sinon pioche.
+  // Générer un coup par As trouvé : le BF compare via defVsHandPenalty + handPlayBonus.
   for(let ci=0;ci<4;ci++){
     if(!g.commons[ci].length){
       const srcs=_sSources(g,pidx,visibleOnly);
-      const ace=srcs.find(({card})=>card.num===1);
-      if(ace) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-      else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
+      const aces=srcs.filter(({card})=>card.num===1);
+      if(aces.length){
+        for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+      } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
     }
   }
 
@@ -975,22 +977,29 @@ function _bruteForce(){
 
 
 // Supprime les coups dupliqués de la liste :
-// - main : deux cartes de même valeur sur la même pile → résultats identiques (règles num-only)
-// - défausse : poser sur deux piles vides différentes → résultat identique
-function _bfDedup(moves,p){
+// - main sur pile non-vide : deux cartes de même valeur → résultats identiques
+// - main sur pile vide : toutes les piles vides sont équivalentes → 'E'
+// - défausse sur pile vide : toutes les piles vides équivalentes pour un même As → 'E' par uid
+// - end : défausse vide vs non-vide
+function _bfDedup(moves,p,g){
   const seen=new Set();
   const out=[];
   for(const mv of moves){
     let key;
     if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
-      key='ph:'+mv.card.num+':'+mv.ci;
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
+    } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      // As sur pile vide : toutes les piles vides équivalentes (même As = même résultat)
+      key=pileEmpty?'pdf:'+mv.card.uid+':E':null;
     } else if(mv.type==='end'){
       const empty=p.defausse[mv.di].length===0;
       key='end:'+mv.card.num+':'+(empty?'E':mv.di);
     } else {
       out.push(mv); continue;
     }
-    if(!seen.has(key)){seen.add(key);out.push(mv);}
+    if(key===null||!seen.has(key)){if(key)seen.add(key);out.push(mv);}
   }
   return out;
 }
@@ -1019,7 +1028,7 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
