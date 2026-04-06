@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.0';
+const _VER_UI='1.2.2';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -341,7 +341,7 @@ function renderPzone(pidx){
   for(let di=0;di<4;di++){
     const pile=p.defausse[di];
     const vtgt=pidx===G.cur&&isHumanTurn()&&UI.sel&&canOnDefausse(UI.sel.card,pile);
-    const n=pile.length;const OFF=11;
+    const n=pile.length;const OFF=18;
     const isDemandable=pidx!==G.cur&&isHumanTurn()&&wasPlayableAtStartOfTurn(pidx,di);
     const totalH=n>0?`calc(var(--ch) + ${Math.max(0,n-1)*OFF}px)`:`var(--ch)`;
     h+=`<div class="dpile${vtgt?' vtgt':''}" style="height:${totalH}"
@@ -677,7 +677,8 @@ function downloadExecTrace(){
   if(!window._execTrace||!window._execTrace.length){setStatus('Exec trace vide');return;}
   // BOM UTF-8 pour que Windows ouvre correctement le fichier
   const bom='\uFEFF';
-  const txt=bom+window._execTrace.join('\n');
+  const verHdr='[versions] game:'+_VER_GAME+' ai:'+_VER_AI+' ui:'+_VER_UI+' app:'+_VER_APP;
+  const txt=bom+verHdr+'\n'+window._execTrace.join('\n');
   const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -705,7 +706,8 @@ function toggleTrace(){
 function downloadTrace(){
   if(!window._traceLog||!window._traceLog.length){setStatus('Trace vide');return;}
   const bom='\uFEFF';
-  const txt=bom+window._traceLog.join('\n');
+  const verHdr='[versions] game:'+_VER_GAME+' ai:'+_VER_AI+' ui:'+_VER_UI+' app:'+_VER_APP;
+  const txt=bom+verHdr+'\n'+window._traceLog.join('\n');
   const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -882,6 +884,7 @@ function showRules(){
 function snapshot(){
   if(!G){addMoveLog('Pas de partie en cours','sys');return;}
   const state={
+    versions:{game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP},
     tour:G.players[G.cur].name,
     piles:G.commons.map((p,i)=>({
       top:peek(p)?cs(peek(p)):'vide',
