@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.3';
+const _VER_UI='1.2.4';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1004,18 +1004,42 @@ function showVictory(winnerIdx){
   if(!G) return;
   const existing=document.getElementById('victory-overlay');
   if(existing) existing.remove();
+  const humanWon=!UI.vsAI||winnerIdx!==UI.aiIdx;
   const name=G.players[winnerIdx].name;
   const ov=document.createElement('div');
   ov.id='victory-overlay';
-  ov.innerHTML=`
-    <div id="victory-box">
-      <div style="font-size:3.5rem;line-height:1">🏆</div>
-      <div id="victory-name">${name}</div>
-      <div id="victory-sub">a vidé sa crapette !</div>
-      <button class="btn red" style="margin-top:14px;padding:10px 24px;font-size:0.9rem;" onclick="showMenu()">Rejouer</button>
-    </div>`;
+  ov.className=humanWon?'win':'lose';
+  ov.onclick=()=>showMenu();
+  if(humanWon){
+    const suits=['♠','♥','♦','♣','♠','♥','♦','♣'];
+    const flyCards=Array.from({length:20},(_,i)=>{
+      const angle=(i/20)*2*Math.PI;
+      const r=280+Math.floor(Math.random()*180);
+      const dx=(Math.cos(angle)*r).toFixed(0);
+      const dy=(Math.sin(angle)*r).toFixed(0);
+      const rot=(Math.floor(Math.random()*1440)-720);
+      const delay=(i*0.04).toFixed(2);
+      return `<div class="fly-card" style="--dx:${dx}px;--dy:${dy}px;--rot:${rot}deg;--delay:${delay}s">${suits[i%suits.length]}</div>`;
+    }).join('');
+    const sub=UI.vsAI?'Tu as vidé ta crapette !':name+' a vidé sa crapette !';
+    ov.innerHTML=`
+      <div class="fly-cards-bg">${flyCards}</div>
+      <div id="victory-box">
+        <div class="victory-icon">🏆</div>
+        <div id="victory-name">Victoire !</div>
+        <div id="victory-sub">${sub}</div>
+        <div class="victory-click">— cliquer pour continuer —</div>
+      </div>`;
+  } else {
+    ov.innerHTML=`
+      <div id="victory-box">
+        <div class="victory-icon">😞</div>
+        <div id="victory-name">Défaite...</div>
+        <div id="victory-sub">${name} a vidé sa crapette.</div>
+        <div class="victory-click">— cliquer pour continuer —</div>
+      </div>`;
+  }
   document.body.appendChild(ov);
-  // Forcer le reflow pour déclencher l'animation CSS
   ov.getBoundingClientRect();
   ov.classList.add('visible');
 }

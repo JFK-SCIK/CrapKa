@@ -215,23 +215,39 @@ body{
   display:none;
 }
 #bf-tip.visible{display:block;}
-/* VICTORY OVERLAY (D8) */
+/* VICTORY OVERLAY */
 #victory-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:600;
   display:flex;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;
+  opacity:0;pointer-events:none;cursor:pointer;
 }
 #victory-overlay.visible{opacity:1;pointer-events:auto;animation:victory-fadein 0.45s cubic-bezier(.4,0,.2,1) forwards;}
 #victory-box{
   background:var(--bg2);border:2px solid var(--gold);border-radius:16px;
-  padding:32px 40px;text-align:center;
+  padding:32px 40px;text-align:center;position:relative;z-index:1;
   transform:scale(0.7);
   animation:victory-scalein 0.45s cubic-bezier(.4,0,.2,1) forwards;
 }
+#victory-overlay.lose #victory-box{border-color:#c0392b;}
+.victory-icon{font-size:3.5rem;line-height:1;}
 #victory-name{font-size:1.6rem;color:var(--gold);font-weight:bold;margin-top:8px;letter-spacing:2px;}
+#victory-overlay.win #victory-name{font-size:2.2rem;animation:victory-scalein 0.45s cubic-bezier(.4,0,.2,1) forwards,victory-blink 0.85s ease-in-out 0.5s infinite;}
+#victory-overlay.lose #victory-name{color:#e74c3c;}
 #victory-sub{font-size:0.85rem;color:var(--text2);margin-top:4px;}
+.victory-click{font-size:0.68rem;color:var(--text2);margin-top:14px;opacity:0.55;}
+/* Flying cards (victoire) */
+.fly-cards-bg{position:fixed;inset:0;pointer-events:none;z-index:0;}
+.fly-card{
+  position:absolute;top:50%;left:50%;font-size:2.2rem;line-height:1;
+  animation:fly-out 1.4s cubic-bezier(.2,.8,.3,1) var(--delay,0s) both;
+}
+@keyframes fly-out{
+  0%{transform:translate(-50%,-50%) rotate(0deg);opacity:1;}
+  100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--rot));opacity:0;}
+}
 @keyframes victory-fadein{from{opacity:0;}to{opacity:1;}}
 @keyframes victory-scalein{from{transform:scale(0.7);}to{transform:scale(1);}}
+@keyframes victory-blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
 /* SPEED */
 #speedrow{display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);}
 #speedrow input{width:55px;}
