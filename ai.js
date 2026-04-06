@@ -544,24 +544,13 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Piles vides : as d'abord, sinon pioche.
-  // Priorité absolue : As de MAIN > As de défausse/crapette.
-  // Un As en main ne peut servir qu'à initialiser une pile vide → on l'utilise en priorité.
-  // L'As de défausse reste disponible pour les tours futurs.
-  // Si plusieurs As de main : un seul coup (piles vides sont interchangeables → dedup).
+  // Piles vides : as d'abord (premier trouvé), sinon pioche
   for(let ci=0;ci<4;ci++){
     if(!g.commons[ci].length){
       const srcs=_sSources(g,pidx,visibleOnly);
-      const handAces=srcs.filter(({card,src})=>card.num===1&&src.type==='hand');
-      if(handAces.length){
-        // As de main disponible → utiliser main uniquement
-        for(const ace of handAces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-      } else {
-        const aces=srcs.filter(({card})=>card.num===1);
-        if(aces.length){
-          for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-        } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
-      }
+      const ace=srcs.find(({card})=>card.num===1);
+      if(ace) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+      else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
     }
   }
 
@@ -919,7 +908,8 @@ function _bruteForce(){
     terminated:false,
     score:_eval(g0,ui0,aiIdx),
     extraBonus:0,
-    crapettePlayed:false   // true après la première pose de crapette (suivante invisible)
+    crapettePlayed:false,  // true après la première pose de crapette (suivante invisible)
+    postKey:false          // true après crapette jouée OU jeu sur pile vide → bonus suivants réduits
   }];
 
   let nonTermCount=1; // nombre de séquences actives (non terminées)
@@ -986,56 +976,20 @@ function _bruteForce(){
 // Supprime les coups dupliqués de la liste :
 // - main : deux cartes de même valeur sur la même pile → résultats identiques (règles num-only)
 // - défausse : poser sur deux piles vides différentes → résultat identique
-// Vérifie si la carte cachée sous le sommet d'une défausse est jouable sur une pile commune
-function _defHidesUseful(g,ui,pidx,defIdx){
-  const pile=g.players[pidx].defausse[defIdx];
-  if(pile.length<2) return false;
-  const hidden=pile[pile.length-2];
-  for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,hidden,ci)) return true;
-  return false;
-}
-
-function _bfDedup(moves,p,g,ui){
-  // Pré-calculer les défausses où la carte cachée est utile
-  // (pour ces défausses, jouer depuis défausse est préférable à main → ne pas dedup)
-  const defHidesUseful=g&&ui?[0,1,2,3].map(i=>_defHidesUseful(g,ui,g.cur,i)):[false,false,false,false];
-
+function _bfDedup(moves,p){
   const seen=new Set();
   const out=[];
   for(const mv of moves){
     let key;
     if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
-      // Sur pile vide (init d'As) : toutes les piles vides sont équivalentes → E
-      const pileEmpty=g&&!g.commons[mv.ci].length;
-      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
+      key='ph:'+mv.card.num+':'+mv.ci;
     } else if(mv.type==='end'){
       const empty=p.defausse[mv.di].length===0;
       key='end:'+mv.card.num+':'+(empty?'E':mv.di);
-    } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
-      const pileEmpty=g&&!g.commons[mv.ci].length;
-      if(pileEmpty){
-        // Pile vide : piles équivalentes → E (par uid)
-        key='pdf:'+mv.card.uid+':E';
-      } else {
-        // Pile non-vide : si même valeur en main ET défausse ne cache rien d'utile
-        // → éliminer la version défausse (main prioritaire)
-        const defIdx=mv.src.index;
-        const hidesUseful=defHidesUseful[defIdx];
-        const handAlsoHas=p.hand.some(c=>c.num===mv.card.num);
-        if(handAlsoHas&&!hidesUseful){
-          key='skip-def-for-hand'; // sera ignoré car déjà vu (ou jamais vu mais forcé skip)
-          // Astuce : ne pas ajouter à out directement — utiliser un marqueur unique pour skip
-          continue; // sauter ce coup, la version main sera utilisée
-        }
-        key=null; // garder tel quel
-      }
-    } else if(mv.type==='init'){
-      // Init pioche sur pile vide : toutes piles vides identiques
-      key='init:E';
     } else {
       out.push(mv); continue;
     }
-    if(key===null||!seen.has(key)){if(key)seen.add(key);out.push(mv);}
+    if(!seen.has(key)){seen.add(key);out.push(mv);}
   }
   return out;
 }
@@ -1064,7 +1018,7 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
@@ -1078,6 +1032,11 @@ function _bfExpand(seq,aiIdx){
       }
     }
   }
+  // Facteur de discount : après crapette jouée OU jeu sur pile vide, les bonus suivants
+  // sont réduits à 30% → seul un vidage total de main peut contrebalancer défausse vs main.
+  const BF_DISCOUNT=0.3;
+  const currentDiscount=seq.postKey?BF_DISCOUNT:1;
+
   return deduped.map((mv,i)=>{
     const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
     // Tirage pioche : carte inconnue → termine la séquence, score l'état AVANT tirage
@@ -1101,7 +1060,17 @@ function _bfExpand(seq,aiIdx){
     const kingFromHandPenalty=isHandPlay&&mv.card.num===13
       ?(!activatesCrapette?-35:(_nonKingActivates?-15:0))
       :0;
-    const newBonus=seq.extraBonus+handPlayBonus+crapetteBonus+kingFromHandPenalty;
+    // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
+    // Non soumis au discount : garanti quelle que soit la position dans la séquence.
+    // Exception : crapette (toujours depuis crapette) et init sur pile vide.
+    const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
+    const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
+    // Bonus/malus soumis au discount (réduits après un événement clé)
+    const discounted=(handPlayBonus+crapetteBonus+kingFromHandPenalty)*currentDiscount;
+    const newBonus=seq.extraBonus+discounted+defVsHandPenalty;
+    // Post-key : les coups suivants seront discountés
+    const isEmptyPilePlay=mv.type==='play'&&!g.commons[mv.ci].length;
+    const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
     const sc=_eval(evalG,evalUi,aiIdx);
@@ -1114,7 +1083,8 @@ function _bfExpand(seq,aiIdx){
       score:willTerminate?sc+newBonus:sc,
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
-      crapettePlayed:seq.crapettePlayed||isCrapettePlay
+      crapettePlayed:seq.crapettePlayed||isCrapettePlay,
+      postKey:newPostKey
     };
   });
 }
