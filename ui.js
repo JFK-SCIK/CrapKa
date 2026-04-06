@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
+const _VER_UI='1.2.0';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -825,10 +826,12 @@ function showStartModal(first, reason){
     +'padding:22px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;'
     +'max-width:320px;text-align:center;';
 
+  const verStr='game:'+_VER_GAME+' ai:'+_VER_AI+' ui:'+_VER_UI+' app:'+_VER_APP;
   box.innerHTML=
     '<div style="font-size:1.4rem">🃏</div>'
     +'<div><b style="font-size:1.05em;color:var(--gold)">'+name+'</b> commence'
-    +'<br><span style="color:var(--text2);font-size:0.82em">'+reason+'</span></div>';
+    +'<br><span style="color:var(--text2);font-size:0.82em">'+reason+'</span></div>'
+    +'<div style="color:var(--text2);font-size:0.68em;font-family:monospace;margin-top:2px;">'+verStr+'</div>';
 
   const btn=document.createElement('button');
   btn.className='btn red';
