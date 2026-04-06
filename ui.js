@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.2';
+const _VER_UI='1.2.3';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -341,7 +341,7 @@ function renderPzone(pidx){
   for(let di=0;di<4;di++){
     const pile=p.defausse[di];
     const vtgt=pidx===G.cur&&isHumanTurn()&&UI.sel&&canOnDefausse(UI.sel.card,pile);
-    const n=pile.length;const OFF=18;
+    const n=pile.length;const OFF=15;
     const isDemandable=pidx!==G.cur&&isHumanTurn()&&wasPlayableAtStartOfTurn(pidx,di);
     const totalH=n>0?`calc(var(--ch) + ${Math.max(0,n-1)*OFF}px)`:`var(--ch)`;
     h+=`<div class="dpile${vtgt?' vtgt':''}" style="height:${totalH}"
