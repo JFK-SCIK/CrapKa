@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.4';
+const _VER_AI='1.2.5';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1102,7 +1102,7 @@ function _bfExpand(seq,aiIdx){
       state:{g:ng,ui:nui},
       moves:[...seq.moves,mv],
       terminated:willTerminate,
-      score:willTerminate?sc+newBonus:sc,
+      score:sc+newBonus,
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
       crapettePlayed:seq.crapettePlayed||isCrapettePlay,
