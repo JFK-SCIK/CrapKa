@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.5';
+const _VER_AI='1.2.6';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -645,8 +645,8 @@ function _evalHandScore(g,ui,aiIdx){
   let sc=0;
   // Cartes de main jouables sur les piles
   for(const c of ai.hand) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,c,ci)){sc+=4;break;}
-  // Main vide + pioche dispo
-  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=10;
+  // Main vide + pioche dispo : bonus élevé car on peut tirer 5 nouvelles cartes
+  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=40;
   // Taille de main (plus petite = mieux)
   const handSize=ai.hand.length;
   sc+=Math.max(0,5-handSize)*4;
@@ -932,12 +932,14 @@ function _bruteForce(){
   let best=null;
   for(const seq of sequences){
     if(!seq.terminated) continue;
-    if(best===null||seq.score>best.score||(seq.score===best.score&&seq.moves.length<best.moves.length))
+    const tot=seq.score+(seq.handScore||0);
+    const bestTot=best?best.score+(best.handScore||0):-Infinity;
+    if(best===null||tot>bestTot||(tot===bestTot&&seq.moves.length<best.moves.length))
       best=seq;
   }
 
   // Stocker les séquences pour le panel debug pas-à-pas
-  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
+  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>(b.score+(b.handScore||0))-(a.score+(a.handScore||0))||a.moves.length-b.moves.length);
   if(_debugMode){
     const bestId=best?best.id:null;
     window._dbgBFSequences=terminated.map(s=>({
