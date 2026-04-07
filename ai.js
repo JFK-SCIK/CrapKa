@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.3';
+const _VER_AI='1.2.4';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -981,14 +981,21 @@ function _bruteForce(){
 // - main sur pile vide : toutes les piles vides sont équivalentes → 'E'
 // - défausse sur pile vide : toutes les piles vides équivalentes pour un même As → 'E' par uid
 // - end : défausse vide vs non-vide
-function _bfDedup(moves,p,g){
+function _bfDedup(moves,p,g,ui){
   const seen=new Set();
   const out=[];
   for(const mv of moves){
     let key;
     if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
       const pileEmpty=g&&!g.commons[mv.ci].length;
-      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
+      if(pileEmpty){
+        key='ph:'+mv.card.num+':E';
+      } else {
+        // Utiliser la valeur du top de pile (pas l'index) pour dédupliquer :
+        // D→P3(V♥) ≡ D→P4(V♥) quand les deux piles ont le même top.
+        const topVal=(g&&ui)?_sTopNum(g,ui,mv.ci):mv.ci;
+        key='ph:'+mv.card.num+':'+topVal;
+      }
     } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
       const pileEmpty=g&&!g.commons[mv.ci].length;
       // As sur pile vide : toutes les piles vides équivalentes (même As = même résultat)
@@ -1028,7 +1035,7 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
@@ -1075,13 +1082,16 @@ function _bfExpand(seq,aiIdx){
     // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
     // Non soumis au discount : garanti quelle que soit la position dans la séquence.
     // Exception : crapette (toujours depuis crapette) et init sur pile vide.
+    const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
+    // Malus : carte de défausse sur pile vide alors que la main a encore des cartes non-roi
+    // → préférer vider la main pour pouvoir repiocher plutôt qu'utiliser les As de défausse
+    const defOnEmptyPenalty=isDefPlay&&isEmptyPilePlay&&p.hand.some(c=>c.num!==13)?-15:0;
     // Bonus/malus soumis au discount (réduits après un événement clé)
     const discounted=(handPlayBonus+crapetteBonus+kingFromHandPenalty)*currentDiscount;
-    const newBonus=seq.extraBonus+discounted+defVsHandPenalty;
+    const newBonus=seq.extraBonus+discounted+defVsHandPenalty+defOnEmptyPenalty;
     // Post-key : les coups suivants seront discountés
-    const isEmptyPilePlay=mv.type==='play'&&!g.commons[mv.ci].length;
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
