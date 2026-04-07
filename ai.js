@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.6';
+const _VER_AI='1.2.7';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1031,11 +1031,11 @@ function _bfExpand(seq,aiIdx){
     lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
   // Aucun coup légal
-  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
 
   // Main vide sans coup 'end' possible → le tour se terminera par redraw
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
-    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
 
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
