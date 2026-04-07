@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.4';
+const _VER_UI='1.2.5';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -463,7 +463,7 @@ function renderMenu(){
 }
 
 function showBtns(){
-  if(!G||G.phase==='game-over'){document.getElementById('btn-ai').style.display='none';return;}
+  if(!G||G.phase==='game-over') return;
   if(_debugMode) _updateStepUI();
 }
 
