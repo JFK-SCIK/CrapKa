@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.1';
+const _VER_AI='1.2.2';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1064,11 +1064,13 @@ function _bfExpand(seq,aiIdx){
     const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
     const crapetteBonus=isCrapettePlay?50:0;
     // Malus Roi de main :
+    // • Dernière carte en main → 0 (le jouer est toujours ≥ le défausser)
     // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
     // • Activation, mais un non-Roi active aussi → −15 (préférer garder le Roi en main)
     // • Activation et seul le Roi peut activer → 0 (le Roi est nécessaire ici)
+    const isLastHandCard=isHandPlay&&p.hand.length===1;
     const kingFromHandPenalty=isHandPlay&&mv.card.num===13
-      ?(!activatesCrapette?-35:(_nonKingActivates?-15:0))
+      ?(isLastHandCard?0:(!activatesCrapette?-35:(_nonKingActivates?-15:0)))
       :0;
     // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
     // Non soumis au discount : garanti quelle que soit la position dans la séquence.
