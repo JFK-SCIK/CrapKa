@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.5';
+const _VER_UI='1.2.7';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -828,12 +828,25 @@ function showStartModal(first, reason){
     +'padding:22px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;'
     +'max-width:320px;text-align:center;';
 
-  const verStr='game:'+_VER_GAME+' ai:'+_VER_AI+' ui:'+_VER_UI+' app:'+_VER_APP;
+  const exp=window._EXPECTED||{};
+  const actual={game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP};
+  const mismatches=Object.keys(actual).filter(k=>exp[k]&&actual[k]!==exp[k]);
+  let verBadge;
+  if(mismatches.length===0){
+    const v=actual.game;
+    verBadge='<span style="color:#2ecc71;font-weight:bold;">OK:v'+v+'</span>';
+  } else {
+    const detail=Object.keys(actual).map(k=>{
+      const ok=!exp[k]||actual[k]===exp[k];
+      return ok?k+':'+actual[k]:'<b>'+k+':'+actual[k]+'</b>(exp:'+exp[k]+')';
+    }).join(' ');
+    verBadge='<span style="color:#e74c3c;font-weight:bold;">KO </span><span style="color:#e74c3c;">'+detail+'</span>';
+  }
   box.innerHTML=
     '<div style="font-size:1.4rem">🃏</div>'
     +'<div><b style="font-size:1.05em;color:var(--gold)">'+name+'</b> commence'
     +'<br><span style="color:var(--text2);font-size:0.82em">'+reason+'</span></div>'
-    +'<div style="color:var(--text2);font-size:0.68em;font-family:monospace;margin-top:2px;">'+verStr+'</div>';
+    +'<div style="font-size:0.68em;font-family:monospace;margin-top:2px;">'+verBadge+'</div>';
 
   const btn=document.createElement('button');
   btn.className='btn red';
