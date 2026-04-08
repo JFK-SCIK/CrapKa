@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.11';
+const _VER_AI='1.2.12';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1108,10 +1108,11 @@ function _bfExpand(seq,aiIdx){
     // Flags d'affichage par coup
     const handEmptied=isHandPlay&&ng.players[pidx].hand.length===0;
     const isClear=mv.type==='clear';
-    const isTrigger=isCrapettePlay||handEmptied||isClear;
+    // "découverte" = les coups suivants portent sur des cartes inconnues
+    const isDiscovery=isCrapettePlay||isPiocheDiscovery||(mv.type==='redraw');
     const meta={activatesCrapette,handEmptied,isCrapettePlay,isClear};
-    // triggerIdx : index du premier coup déclencheur → les suivants en italique
-    const newTriggerIdx=seq.triggerIdx!==-1?seq.triggerIdx:(isTrigger?seq.moves.length:-1);
+    // triggerIdx : index du coup découverte → les coups APRÈS sont en italique gris
+    const newTriggerIdx=seq.triggerIdx!==-1?seq.triggerIdx:(isDiscovery?seq.moves.length:-1);
     return{
       id:seq.id+'.'+i,
       state:{g:ng,ui:nui},
