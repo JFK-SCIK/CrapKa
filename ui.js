@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.9';
+const _VER_UI='1.2.10';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -522,11 +522,14 @@ function renderBFSeq(){
         const meta=(s.moveMeta&&s.moveMeta[idx])||{};
         const isPost=(s.triggerIdx??-1)!==-1&&idx>s.triggerIdx;
         const txt=_fmtMove(mv);
-        if(isPost) return '<i style="color:var(--text2);font-size:0.88em">'+txt+'</i>';
         const isTrigger=meta.isCrapettePlay||meta.handEmptied||meta.isClear;
         const inner=isTrigger?'<u>'+txt+'</u>':txt;
-        if(meta.activatesCrapette) return '<b style="color:#2ecc71">'+inner+'</b>';
-        if(meta.handEmptied)       return '<b>'+inner+'</b>';
+        // Priorité haute : coups de crapette et coups activant la crapette → vert gras
+        if(meta.isCrapettePlay||meta.activatesCrapette) return '<b style="color:#2ecc71">'+inner+'</b>';
+        // Vidage de main → gras (souligné si c'est le coup exact)
+        if(meta.handEmptied) return '<b>'+inner+'</b>';
+        // Post-déclencheur → italique grisé (après crapette/vidage/recyclage)
+        if(isPost) return '<i style="color:var(--text2);font-size:0.88em">'+txt+'</i>';
         return inner;
       }).join(' | ');
     }

@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.10';
+const _VER_AI='1.2.11';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1091,9 +1091,11 @@ function _bfExpand(seq,aiIdx){
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
-    // Malus : carte de défausse sur pile vide alors que la main a encore des cartes non-roi
+    // Malus : carte de défausse sur pile vide alors que la main a encore des cartes jouables non-roi
     // → préférer vider la main pour pouvoir repiocher plutôt qu'utiliser les As de défausse
-    const defOnEmptyPenalty=isDefPlay&&isEmptyPilePlay&&p.hand.some(c=>c.num!==13)?-15:0;
+    // Ne s'applique que si la main contient des cartes effectivement jouables (pas juste présentes)
+    const handHasPlayableNonKing=p.hand.some(c=>c.num!==13&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,c,ci2)));
+    const defOnEmptyPenalty=isDefPlay&&isEmptyPilePlay&&handHasPlayableNonKing?-15:0;
     // Bonus/malus soumis au discount (réduits après un événement clé)
     const discounted=(handPlayBonus+crapetteBonus+kingFromHandPenalty)*currentDiscount;
     const newBonus=seq.extraBonus+discounted+defVsHandPenalty+defOnEmptyPenalty;
