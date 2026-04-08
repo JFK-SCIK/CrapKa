@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.14';
+const _VER_AI='1.2.15';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -553,7 +553,12 @@ function _sLegal(g,ui,pidx,visibleOnly){
       const aces=srcs.filter(({card})=>card.num===1);
       if(aces.length){
         for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
-      } else if(g.pioche.length>0||g.futurePioche.length>0) moves.push({type:'init',ci});
+      } else if(g.pioche.length>0||g.futurePioche.length>0){
+        // Ne pas initier depuis pioche si crapette ≤ 3 et aucun as visible (trop risqué)
+        const crLen=g.players[pidx].crapette.length;
+        const hasVisibleAce=_sSources(g,pidx,true).some(({card})=>card.num===1);
+        if(crLen>3||hasVisibleAce) moves.push({type:'init',ci});
+      }
     }
   }
 
@@ -1065,9 +1070,12 @@ function _bfExpand(seq,aiIdx){
     const isHandPlay=mv.type==='play'&&mv.src?.type==='hand';
     const activatesCrapette=!crWasPlayable&&crNowPlayable;
     const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
-    const crapetteBonus=isCrapettePlay?50:0;
+    // Bonus de tier — hors discount, garantissent la hiérarchie quelle que soit la diff _eval
+    // Tier 1 : pose de crapette → +500 (aucune diff _eval dans un tour ne peut combler ça)
+    // Tier 2 : vidage de main → +150 (entre max diff _eval ~80 et tier1 500)
+    const handEmptied=p.hand.length>0&&ng.players[pidx].hand.length===0;
+    const tierBonus=isCrapettePlay?500:handEmptied?150:0;
     // Malus Roi de main :
-    // • Dernière carte en main → 0 (le jouer est toujours ≥ le défausser)
     // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
     // • Activation, mais un non-Roi active aussi → −15 (préférer garder le Roi en main)
     // • Activation et seul le Roi peut activer → 0 (le Roi est nécessaire ici)
@@ -1076,13 +1084,12 @@ function _bfExpand(seq,aiIdx){
       :0;
     // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
     // Non soumis au discount : garanti quelle que soit la position dans la séquence.
-    // Exception : crapette (toujours depuis crapette) et init sur pile vide.
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
-    // Bonus/malus soumis au discount (réduits après un événement clé)
-    const discounted=(handPlayBonus+crapetteBonus+kingFromHandPenalty)*currentDiscount;
-    const newBonus=seq.extraBonus+discounted+defVsHandPenalty;
+    // Bonus soumis au discount (secondaires, réduits après un événement clé)
+    const discounted=(handPlayBonus+kingFromHandPenalty)*currentDiscount;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty;
     // Post-key : les coups suivants seront discountés
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
