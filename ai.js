@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.16';
+const _VER_AI='1.2.17';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1073,7 +1073,8 @@ function _bfExpand(seq,aiIdx){
     // Bonus de tier — hors discount, garantissent la hiérarchie quelle que soit la diff _eval
     // Tier 1 : pose de crapette → +500 (aucune diff _eval dans un tour ne peut combler ça)
     // Tier 2 : vidage de main → +150 (entre max diff _eval ~80 et tier1 500)
-    const handEmptied=p.hand.length>0&&ng.players[pidx].hand.length===0;
+    // Main vidée par un coup sur pile (pas par défausse) → on va repiocher
+    const handEmptied=mv.type!=='end'&&p.hand.length>0&&ng.players[pidx].hand.length===0;
     const tierBonus=isCrapettePlay?500:handEmptied?150:0;
     // Malus Roi de main :
     // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
