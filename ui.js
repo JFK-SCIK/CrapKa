@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.8';
+const _VER_UI='1.2.9';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -519,14 +519,15 @@ function renderBFSeq(){
       html+='(fin)';
     } else {
       html+=s.moves.map((mv,idx)=>{
+        const meta=(s.moveMeta&&s.moveMeta[idx])||{};
+        const isPost=(s.triggerIdx??-1)!==-1&&idx>s.triggerIdx;
         const txt=_fmtMove(mv);
-        const isCr=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
-        const isDisco=isCr||(mv.type==='init'&&!mv.card)||(mv.type==='redraw');
-        const isPostDisco=s.discoIdx!==-1&&idx>s.discoIdx;
-        if(isCr)          return '<b style="color:#ff4444">'+txt+'</b>';
-        if(isDisco)       return '<b>'+txt+'</b>';
-        if(isPostDisco)   return '<i style="color:var(--text2)">'+txt+'</i>';
-        return txt;
+        if(isPost) return '<i style="color:var(--text2);font-size:0.88em">'+txt+'</i>';
+        const isTrigger=meta.isCrapettePlay||meta.handEmptied||meta.isClear;
+        const inner=isTrigger?'<u>'+txt+'</u>':txt;
+        if(meta.activatesCrapette) return '<b style="color:#2ecc71">'+inner+'</b>';
+        if(meta.handEmptied)       return '<b>'+inner+'</b>';
+        return inner;
       }).join(' | ');
     }
     const hs=s.handScore||0;
@@ -764,8 +765,13 @@ function _traceBF(sequences,best,aiIdx){
   for(const s of top){
     const flag=s.isBest?'★ ':'  ';
     const moves=s.moves.map((m,idx)=>{
+      const meta=(s.moveMeta&&s.moveMeta[idx])||{};
+      const isPost=(s.triggerIdx??-1)!==-1&&idx>s.triggerIdx;
       const txt=_fmtMove(m);
-      return(s.discoIdx!==-1&&idx>s.discoIdx)?'*'+txt+'*':txt;
+      if(isPost) return '*'+txt+'*';
+      if(meta.activatesCrapette) return '>>>'+txt+'<<<';
+      if(meta.handEmptied||meta.isCrapettePlay||meta.isClear) return '_'+txt+'_';
+      return txt;
     }).join(' | ')||'(fin)';
     _tlog('  '+flag+s.score.toFixed(1)+'[M:'+(s.handScore||0).toFixed(0)+'] '+moves);
   }
