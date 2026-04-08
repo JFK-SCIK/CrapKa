@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.13';
+const _VER_AI='1.2.14';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1071,9 +1071,8 @@ function _bfExpand(seq,aiIdx){
     // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
     // • Activation, mais un non-Roi active aussi → −15 (préférer garder le Roi en main)
     // • Activation et seul le Roi peut activer → 0 (le Roi est nécessaire ici)
-    const isLastHandCard=isHandPlay&&p.hand.length===1;
     const kingFromHandPenalty=isHandPlay&&mv.card.num===13
-      ?(isLastHandCard?0:(!activatesCrapette?-35:(_nonKingActivates?-15:0)))
+      ?(!activatesCrapette?-35:(_nonKingActivates?-15:0))
       :0;
     // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
     // Non soumis au discount : garanti quelle que soit la position dans la séquence.
@@ -1249,12 +1248,11 @@ function _aiDiscard(){
       }
     }
     if(moved) continue;
-    // Jouer cartes jouables depuis la main — hors Rois sauf si seule carte restante
+    // Jouer cartes jouables depuis la main — hors Rois (le BF les aurait inclus si bénéfiques)
     {
-      const onlyKingsLeft=p.hand.length>0&&p.hand.every(c=>c.num===13);
       const allMoves=[];
       for(const card of p.hand){
-        if(card.num===13&&!onlyKingsLeft) continue; // Rois exclus sauf si dernière(s) carte(s)
+        if(card.num===13) continue;
         for(let ci=0;ci<4;ci++)
           if(canOnCommon(card,ci))
             allMoves.push({type:'play',card,src:{type:'hand'},ci});
@@ -1287,11 +1285,9 @@ function _aiDiscard(){
     }
   }
 
-  // Les candidats à la défausse = cartes restantes non jouables (hors rois jouables)
-  const kingPlayable=c=>c.num===13&&G.commons.some((_,ci)=>canOnCommon(c,ci));
+  // Les candidats à la défausse = cartes restantes non jouables (hors rois)
   let cands=p.hand.filter(c=>c.num!==13&&!_handCardIsPlayable(c));
   if(!cands.length) cands=p.hand.filter(c=>c.num!==13);
-  if(!cands.length) cands=p.hand.filter(c=>!kingPlayable(c));
   if(!cands.length) cands=[...p.hand];
   let toDiscard=null,src={type:'hand'};
   if(cands.length){
