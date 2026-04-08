@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.12';
+const _VER_AI='1.2.13';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -645,8 +645,8 @@ function _evalHandScore(g,ui,aiIdx){
   let sc=0;
   // Cartes de main jouables sur les piles
   for(const c of ai.hand) for(let ci=0;ci<4;ci++) if(_sCanOnCommon(g,ui,c,ci)){sc+=4;break;}
-  // Main vide + pioche dispo : bonus élevé car on peut tirer 5 nouvelles cartes
-  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=40;
+  // Main vide + pioche dispo
+  if(ai.hand.length===0&&(g.pioche.length>0||g.futurePioche.length>0)) sc+=10;
   // Taille de main (plus petite = mieux)
   const handSize=ai.hand.length;
   sc+=Math.max(0,5-handSize)*4;
@@ -934,14 +934,12 @@ function _bruteForce(){
   let best=null;
   for(const seq of sequences){
     if(!seq.terminated) continue;
-    const tot=seq.score+(seq.handScore||0);
-    const bestTot=best?best.score+(best.handScore||0):-Infinity;
-    if(best===null||tot>bestTot||(tot===bestTot&&seq.moves.length<best.moves.length))
+    if(best===null||seq.score>best.score||(seq.score===best.score&&seq.moves.length<best.moves.length))
       best=seq;
   }
 
   // Stocker les séquences pour le panel debug pas-à-pas
-  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>(b.score+(b.handScore||0))-(a.score+(a.handScore||0))||a.moves.length-b.moves.length);
+  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
   if(_debugMode){
     const bestId=best?best.id:null;
     window._dbgBFSequences=terminated.map(s=>({
@@ -987,24 +985,16 @@ function _bruteForce(){
 // - main sur pile vide : toutes les piles vides sont équivalentes → 'E'
 // - défausse sur pile vide : toutes les piles vides équivalentes pour un même As → 'E' par uid
 // - end : défausse vide vs non-vide
-function _bfDedup(moves,p,g,ui){
+function _bfDedup(moves,p,g){
   const seen=new Set();
   const out=[];
   for(const mv of moves){
     let key;
     if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
       const pileEmpty=g&&!g.commons[mv.ci].length;
-      if(pileEmpty){
-        key='ph:'+mv.card.num+':E';
-      } else {
-        // Utiliser la valeur du top de pile (pas l'index) pour dédupliquer :
-        // D→P3(V♥) ≡ D→P4(V♥) quand les deux piles ont le même top.
-        const topVal=(g&&ui)?_sTopNum(g,ui,mv.ci):mv.ci;
-        key='ph:'+mv.card.num+':'+topVal;
-      }
+      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
     } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
       const pileEmpty=g&&!g.commons[mv.ci].length;
-      // As sur pile vide : toutes les piles vides équivalentes (même As = même résultat)
       key=pileEmpty?'pdf:'+mv.card.uid+':E':null;
     } else if(mv.type==='end'){
       const empty=p.defausse[mv.di].length===0;
@@ -1035,13 +1025,13 @@ function _bfExpand(seq,aiIdx){
     lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
   // Aucun coup légal
-  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
   // Main vide sans coup 'end' possible → le tour se terminera par redraw
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
-    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
   // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
   const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
@@ -1091,14 +1081,9 @@ function _bfExpand(seq,aiIdx){
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
-    // Malus : carte de défausse sur pile vide alors que la main a encore des cartes jouables non-roi
-    // → préférer vider la main pour pouvoir repiocher plutôt qu'utiliser les As de défausse
-    // Ne s'applique que si la main contient des cartes effectivement jouables (pas juste présentes)
-    const handHasPlayableNonKing=p.hand.some(c=>c.num!==13&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,c,ci2)));
-    const defOnEmptyPenalty=isDefPlay&&isEmptyPilePlay&&handHasPlayableNonKing?-15:0;
     // Bonus/malus soumis au discount (réduits après un événement clé)
     const discounted=(handPlayBonus+crapetteBonus+kingFromHandPenalty)*currentDiscount;
-    const newBonus=seq.extraBonus+discounted+defVsHandPenalty+defOnEmptyPenalty;
+    const newBonus=seq.extraBonus+discounted+defVsHandPenalty;
     // Post-key : les coups suivants seront discountés
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
@@ -1119,7 +1104,7 @@ function _bfExpand(seq,aiIdx){
       moves:[...seq.moves,mv],
       moveMeta:[...(seq.moveMeta||[]),meta],
       terminated:willTerminate,
-      score:sc+newBonus,
+      score:willTerminate?sc+newBonus:sc,
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
       crapettePlayed:seq.crapettePlayed||isCrapettePlay,
