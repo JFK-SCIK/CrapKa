@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.17';
+const _VER_AI='1.2.18';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1110,7 +1110,10 @@ function _bfExpand(seq,aiIdx){
       moves:[...seq.moves,mv],
       moveMeta:[...(seq.moveMeta||[]),meta],
       terminated:willTerminate,
-      score:willTerminate?sc+newBonus:sc,
+      // Score : pour les terminés, sc+newBonus (définitif)
+      // Pour les intermédiaires, sc+newBonus aussi : le tierBonus guide le beam
+      // vers les branches prometteuses (vider main, crapette) dès les premiers coups
+      score:sc+newBonus,
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
       crapettePlayed:seq.crapettePlayed||isCrapettePlay,
