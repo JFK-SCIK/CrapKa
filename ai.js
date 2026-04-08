@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.15';
+const _VER_AI='1.2.16';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1097,7 +1097,6 @@ function _bfExpand(seq,aiIdx){
     const sc=_eval(evalG,evalUi,aiIdx);
     const hs=willTerminate?_evalHandScore(evalG,evalUi,aiIdx):0;
     // Flags d'affichage par coup
-    const handEmptied=isHandPlay&&ng.players[pidx].hand.length===0;
     const isClear=mv.type==='clear';
     // "découverte" = les coups suivants portent sur des cartes inconnues
     const isDiscovery=isCrapettePlay||isPiocheDiscovery||(mv.type==='redraw');
