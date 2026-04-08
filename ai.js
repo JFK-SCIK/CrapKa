@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.9';
+const _VER_AI='1.2.10';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -948,6 +948,8 @@ function _bruteForce(){
       score: s.score,
       handScore: s.handScore||0,
       moves: s.moves,
+      moveMeta: s.moveMeta||[],
+      triggerIdx: s.triggerIdx??-1,
       isBest: s.id===bestId,
       breakdown: _evalBreakdown(s.state.g,s.state.ui,aiIdx)
     }));
@@ -958,7 +960,7 @@ function _bruteForce(){
     const bestId=best?best.id:null;
     _traceBF(terminated.map(s=>({
       score:s.score,handScore:s.handScore||0,
-      moves:s.moves,isBest:s.id===bestId
+      moves:s.moves,moveMeta:s.moveMeta||[],triggerIdx:s.triggerIdx??-1,isBest:s.id===bestId
     })),best,aiIdx);
     // Vérifier si la crapette est dans une séquence et pourquoi la meilleure ne la joue pas
     const ai=G.players[aiIdx];
