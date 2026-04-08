@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.7';
+const _VER_UI='1.2.8';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -518,14 +518,16 @@ function renderBFSeq(){
     if(!s.moves.length){
       html+='(fin)';
     } else {
-      html+=s.moves.map(mv=>{
+      html+=s.moves.map((mv,idx)=>{
         const txt=_fmtMove(mv);
         const isCr=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
         const isDisco=isCr||(mv.type==='init'&&!mv.card)||(mv.type==='redraw');
-        if(isCr)    return '<b style="color:#ff4444">'+txt+'</b>';
-        if(isDisco) return '<b>'+txt+'</b>';
+        const isPostDisco=s.discoIdx!==-1&&idx>s.discoIdx;
+        if(isCr)          return '<b style="color:#ff4444">'+txt+'</b>';
+        if(isDisco)       return '<b>'+txt+'</b>';
+        if(isPostDisco)   return '<i style="color:var(--text2)">'+txt+'</i>';
         return txt;
-      }).join('|');
+      }).join(' | ');
     }
     const hs=s.handScore||0;
     html+=' <span style="color:var(--text2);font-size:0.75em">(M:'+(hs>=0?'+':'')+hs.toFixed(0)+')</span>';
@@ -761,7 +763,10 @@ function _traceBF(sequences,best,aiIdx){
   const top=sequences.slice(0,8);
   for(const s of top){
     const flag=s.isBest?'★ ':'  ';
-    const moves=s.moves.map(m=>_fmtMove(m)).join('|')||'(fin)';
+    const moves=s.moves.map((m,idx)=>{
+      const txt=_fmtMove(m);
+      return(s.discoIdx!==-1&&idx>s.discoIdx)?'*'+txt+'*':txt;
+    }).join(' | ')||'(fin)';
     _tlog('  '+flag+s.score.toFixed(1)+'[M:'+(s.handScore||0).toFixed(0)+'] '+moves);
   }
   if(sequences.length>8) _tlog('  ... ('+(sequences.length-8)+' autres)');

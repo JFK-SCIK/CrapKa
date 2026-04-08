@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.7';
+const _VER_AI='1.2.8';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -912,7 +912,8 @@ function _bruteForce(){
     score:_eval(g0,ui0,aiIdx),
     extraBonus:0,
     crapettePlayed:false,  // true après la première pose de crapette (suivante invisible)
-    postKey:false          // true après crapette jouée OU jeu sur pile vide → bonus suivants réduits
+    postKey:false,         // true après crapette jouée OU jeu sur pile vide → bonus suivants réduits
+    discoIdx:-1            // index du 1er coup post-découverte (-1 = aucune découverte)
   }];
 
   let nonTermCount=1; // nombre de séquences actives (non terminées)
@@ -1031,11 +1032,11 @@ function _bfExpand(seq,aiIdx){
     lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
   // Aucun coup légal
-  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx),discoIdx:seq.discoIdx}];
 
   // Main vide sans coup 'end' possible → le tour se terminera par redraw
   if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
-    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx),discoIdx:seq.discoIdx}];
 
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g,ui);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
@@ -1099,6 +1100,10 @@ function _bfExpand(seq,aiIdx){
     const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
     const sc=_eval(evalG,evalUi,aiIdx);
     const hs=willTerminate?_evalHandScore(evalG,evalUi,aiIdx):0;
+    // discoIdx : index du premier coup joué après une découverte (pioche, crapette, init)
+    // Une découverte = init (pioche vers pile), redraw (retournement main), crapette retournée
+    const isDiscovery=isPiocheDiscovery||isCrapettePlay||(mv.type==='redraw');
+    const newDiscoIdx=seq.discoIdx!==-1?seq.discoIdx:(isDiscovery?seq.moves.length:-1);
     return{
       id:seq.id+'.'+i,
       state:{g:ng,ui:nui},
@@ -1108,7 +1113,8 @@ function _bfExpand(seq,aiIdx){
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
       crapettePlayed:seq.crapettePlayed||isCrapettePlay,
-      postKey:newPostKey
+      postKey:newPostKey,
+      discoIdx:newDiscoIdx
     };
   });
 }
