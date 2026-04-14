@@ -76,6 +76,7 @@ function newGame(vsAI){
     futurePioche:[],
     cur:0,phase:'play',winner:null,
     startDefSnap:null,
+    demandMadeThisTurn:false,
   };
 
   // Détecter rois initiaux sur piles communes
@@ -127,6 +128,7 @@ function saveSnap(){
   G.startCommonsSnap=G.commons.map(pile=>[...pile]);
   G.startKingValSnap=[...UI.pileKingVal];
   G.startKingPendSnap=[...UI.pileKingPending];
+  G.demandMadeThisTurn=false;
 }
 
 // ══════════════════════════════════════════════
@@ -525,6 +527,9 @@ function wasPlayableAtStartOfTurn(oppIdx,defIdx){
 
 function tryDemand(oppIdx,defIdx){
   if(oppIdx===G.cur) return;
+  if(G.demandMadeThisTurn){
+    setStatus('Une seule demande par tour');return;
+  }
   if(!wasPlayableAtStartOfTurn(oppIdx,defIdx)){
     setStatus('Cette carte ne peut pas être demandée');return;
   }
@@ -546,7 +551,7 @@ function tryDemand(oppIdx,defIdx){
     }
   }
   G.cur=savedCur;
-  if(played){checkWin();render();}
+  if(played){G.demandMadeThisTurn=true;checkWin();render();}
 }
 
 // ══════════════════════════════════════════════
@@ -566,6 +571,7 @@ function _buildUndoSnap(){
     startCommonsSnap:G.startCommonsSnap?G.startCommonsSnap.map(p=>[...p]):null,
     startKingValSnap:G.startKingValSnap?[...G.startKingValSnap]:null,
     startKingPendSnap:G.startKingPendSnap?[...G.startKingPendSnap]:null,
+    demandMadeThisTurn:G.demandMadeThisTurn||false,
     kingVal:[...UI.pileKingVal],
     kingPend:[...UI.pileKingPending],
     vsAI:UI.vsAI,
@@ -585,7 +591,7 @@ function _restoreFromSnap(s){
       commons:[[],[],[],[]],pioche:[],futurePioche:[],
       cur:0,phase:'play',winner:null,
       startDefSnap:null,startCommonsSnap:null,
-      startKingValSnap:null,startKingPendSnap:null,
+      startKingValSnap:null,startKingPendSnap:null,demandMadeThisTurn:false,
     };
   }
   G.commons=s.commons.map(p=>[...p]);
@@ -602,6 +608,7 @@ function _restoreFromSnap(s){
   G.startCommonsSnap=s.startCommonsSnap;
   G.startKingValSnap=s.startKingValSnap;
   G.startKingPendSnap=s.startKingPendSnap;
+  G.demandMadeThisTurn=s.demandMadeThisTurn||false;
   UI.pileKingVal=[...s.kingVal];
   UI.pileKingPending=[...s.kingPend];
   if(s.vsAI!==undefined) UI.vsAI=s.vsAI;

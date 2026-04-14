@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.18';
+const _VER_AI='1.2.32';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -133,7 +133,7 @@ function _replayMoves(moves){
   const mv=moves.shift();
   // Vérifier découverte AVANT application (G est encore l'état avant le coup)
   const _discovery=(mv.type==='play'&&mv.src&&mv.src.type==='crapette')
-    ||(mv.type==='init'&&!mv.card)
+    ||(mv.type==='init'&&(!mv.card||mv.fromPioche))
     ||(mv.type==='redraw');
   _T('_replayMoves:apply','mv='+mv.type+(mv.card?'['+mv.card.value+mv.card.suit+']':'')+(mv.src?' src='+mv.src.type:'')+' disco='+_discovery+' left='+moves.length);
   _applyMoveWithAnim(mv,()=>{
@@ -177,13 +177,9 @@ function _applyMoveWithAnim(mv,cb){
   if(mv.type==='play'){
     playOnCommon(mv.card,mv.src,mv.ci,()=>cb());
   } else if(mv.type==='redraw'){
-    // Piocher une nouvelle main et relancer le tour IA
+    // Piocher une nouvelle main — la relance IA est gérée par _replayMoves via _discovery=true
     drawToFive(()=>{
       render();
-      // Relancer l'IA pour jouer avec la nouvelle main
-      if(G.phase!=='game-over'&&UI.vsAI&&G.cur===UI.aiIdx){
-        setTimeout(aiPlayTurn,300);
-      }
       cb();
     });
   } else if(mv.type==='demand'){
@@ -220,7 +216,9 @@ function _applyMoveWithAnim(mv,cb){
     if(flyDur>0) setTimeout(cb,Math.round(flyDur*0.5)); else cb();
   } else if(mv.type==='init'){
     if(mv.fromPioche&&mv.card){
-      // Carte déterminée pendant simulation → injecter directement sans repiocher
+      // Carte déterminée pendant simulation → consommer depuis la pioche réelle (même carte, déterministe)
+      if(G.pioche.length===0) reshufflePioche();
+      if(G.pioche.length>0) G.pioche.pop();
       G.commons[mv.ci].push(mv.card);
       if(mv.card.num===13) resolveKingPushed(mv.ci);
       else{UI.pileKingVal[mv.ci]=null;UI.pileKingPending[mv.ci]=false;}
@@ -545,6 +543,9 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
+  // Main vide → tirage immédiat (priorité sur tout sauf clear/king forcés)
+  if(p.hand.length===0&&!visibleOnly) return [{type:'redraw'}];
+
   // Piles vides : tous les As disponibles (main + défausse + crapette), sinon pioche.
   // Générer un coup par As trouvé : le BF compare via defVsHandPenalty + handPlayBonus.
   for(let ci=0;ci<4;ci++){
@@ -573,8 +574,8 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Demandes : cartes de défausse adverse jouables au début du tour IA
-  if(!visibleOnly){
+  // Demandes : cartes de défausse adverse jouables au début du tour IA (une seule par tour)
+  if(!visibleOnly&&!g.demandMadeThisTurn){
     const oppIdx=1-pidx;
     const opp=g.players[oppIdx];
     for(let di=0;di<4;di++){
@@ -627,6 +628,7 @@ function _sApply(g,ui,pidx,mv){
     const oppDef=ng.players[mv.oppIdx].defausse[mv.defIdx];
     if(oppDef.length&&oppDef[oppDef.length-1].uid===mv.card.uid) oppDef.pop();
     ng.commons[mv.ci].push(mv.card);
+    ng.demandMadeThisTurn=true;
     if(mv.card.num===13) _sResolveKing(ng,nui,mv.ci);
     else if(nui.pileKingPending[mv.ci]){nui.pileKingPending[mv.ci]=false;nui.pileKingVal[mv.ci]=mv.card.num-1;}
     else{nui.pileKingVal[mv.ci]=null;nui.pileKingPending[mv.ci]=false;}
@@ -871,9 +873,16 @@ function _eval(g,ui,aiIdx){
 // ══════════════════════════════════════════════
 // FORCE BRUTE
 // ══════════════════════════════════════════════
-// Limite sur les branches actives (non terminées) plutôt que sur le total :
-// les séquences terminées (end) n'étouffent plus l'exploration en profondeur.
-const BF_MAX_ACTIVE=600;
+// Limite sur le nombre d'expansions (séquences traitées) plutôt que sur les actives simultanées.
+// Le best-first garantit que les meilleures séquences sont explorées en premier.
+const BF_MAX_EXPANSIONS=3000;
+
+// Borne supérieure optimiste du bonus encore atteignable depuis une séquence non terminée.
+// Utilisée pour l'élagage : si score+hMax < meilleur_terminé, la séquence ne peut plus gagner.
+function _hMax(seq,aiIdx){
+  const hand=seq.state.g.players[aiIdx].hand;
+  return (seq.crapettePlayed?0:500)+(hand.length>0?150:0)+hand.length*5;
+}
 
 // Formate une valeur de carte sur 1 caractère (10 → T)
 function _fmtCV(card){ return card?( card.value==='10'?'T':card.value ):'?'; }
@@ -909,7 +918,7 @@ function _bruteForce(){
   const aiIdx=UI.aiIdx;
   const {g:g0,ui:ui0}=_cloneState(G,UI);
 
-  let sequences=[{
+  const initSeq={
     id:'0',
     state:{g:g0,ui:ui0},
     moves:[],
@@ -920,34 +929,60 @@ function _bruteForce(){
     postKey:false,         // true après crapette jouée OU jeu sur pile vide → bonus suivants réduits
     triggerIdx:-1,         // index du 1er coup déclencheur (crapette/main vide/recyclage)
     moveMeta:[]            // flags par coup pour l'affichage
-  }];
+  };
+  initSeq.hMax=_hMax(initSeq,aiIdx);
 
-  let nonTermCount=1; // nombre de séquences actives (non terminées)
-  while(nonTermCount>0&&nonTermCount<BF_MAX_ACTIVE){
-    const idx=sequences.findIndex(s=>!s.terminated);
-    if(idx===-1) break;
-    const active=sequences[idx];
-    const expanded=_bfExpand(active,aiIdx);
-    sequences.splice(idx,1); nonTermCount--;  // retirer la séquence active
-    for(const s of expanded){
-      sequences.push(s);
-      if(!s.terminated) nonTermCount++;
+  // Best-first : toujours traiter la séquence active avec le meilleur score+hMax.
+  // Les séquences terminées et actives sont séparées pour éviter de parcourir les terminées.
+  let active=[initSeq];
+  let terminated=[];
+  let bestTermScore=-Infinity;
+  let expansions=0;
+
+  while(active.length>0&&expansions<BF_MAX_EXPANSIONS){
+    // Trouver la séquence active avec le meilleur score+hMax (best-first)
+    let bestIdx=0, bestF=active[0].score+active[0].hMax;
+    for(let i=1;i<active.length;i++){
+      const f=active[i].score+active[i].hMax;
+      if(f>bestF){bestF=f;bestIdx=i;}
     }
+    // Si même la meilleure active ne peut plus battre le meilleur terminé → arrêt
+    if(bestF<bestTermScore) break;
+
+    const seq=active[bestIdx];
+    active.splice(bestIdx,1);
+    expansions++;
+
+    const expanded=_bfExpand(seq,aiIdx);
+    for(const s of expanded){
+      if(s.terminated){
+        terminated.push(s);
+        if(s.score>bestTermScore) bestTermScore=s.score;
+      } else {
+        s.hMax=_hMax(s,aiIdx);
+        // N'ajouter que si la séquence peut encore potentiellement gagner
+        if(bestTermScore===-Infinity||s.score+s.hMax>=bestTermScore)
+          active.push(s);
+      }
+    }
+    // Élagage : retirer les actives qui ne peuvent plus battre le meilleur terminé
+    if(bestTermScore>-Infinity)
+      active=active.filter(s=>s.score+s.hMax>=bestTermScore);
   }
 
   // Meilleure séquence terminée (tie-break : plus courte si scores égaux)
   let best=null;
-  for(const seq of sequences){
-    if(!seq.terminated) continue;
+  for(const seq of terminated){
     if(best===null||seq.score>best.score||(seq.score===best.score&&seq.moves.length<best.moves.length))
       best=seq;
   }
 
   // Stocker les séquences pour le panel debug pas-à-pas
-  const terminated=sequences.filter(s=>s.terminated).sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
+  const sortedTerm=terminated.sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
   if(_debugMode){
     const bestId=best?best.id:null;
-    window._dbgBFSequences=terminated.map(s=>({
+    window._dbgBFExpansions=expansions;
+    window._dbgBFSequences=sortedTerm.map(s=>({
       score: s.score,
       handScore: s.handScore||0,
       moves: s.moves,
@@ -961,10 +996,11 @@ function _bruteForce(){
   // Trace BF
   if(window._traceMode){
     const bestId=best?best.id:null;
-    _traceBF(terminated.map(s=>({
+    _traceBF(sortedTerm.map(s=>({
       score:s.score,handScore:s.handScore||0,
       moves:s.moves,moveMeta:s.moveMeta||[],triggerIdx:s.triggerIdx??-1,isBest:s.id===bestId
     })),best,aiIdx);
+    _tlog('  BF expansions='+expansions+' terminées='+terminated.length+' actives_restantes='+active.length);
     // Vérifier si la crapette est dans une séquence et pourquoi la meilleure ne la joue pas
     const ai=G.players[aiIdx];
     const crT=ai.crapette.length?ai.crapette[ai.crapette.length-1]:null;
@@ -1030,11 +1066,11 @@ function _bfExpand(seq,aiIdx){
     lm=lm.filter(m=>!(m.type==='play'&&m.src&&m.src.type==='crapette'));
 
   // Aucun coup légal
-  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
+  if(!lm.length) return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  // Main vide sans coup 'end' possible → le tour se terminera par redraw
-  if(p.hand.length===0&&!lm.some(m=>m.type==='end'))
-    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx),handScore:_evalHandScore(g,ui,aiIdx)}];
+  // Main vide sans coup 'end' ni coup jouable possible → le tour se terminera par redraw
+  if(p.hand.length===0&&!lm.some(m=>m.type==='end')&&!lm.some(m=>m.type==='play'||m.type==='demand'))
+    return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
 
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
   // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
@@ -1047,6 +1083,27 @@ function _bfExpand(seq,aiIdx){
       if(m.type==='play'&&m.src?.type==='hand'&&m.card.num!==13){
         const{g:tg,ui:tui}=_sApply(g,ui,pidx,m);
         if(tg.commons.some((_,ci)=>_sCanOnCommon(tg,tui,_baseCrT,ci))){_nonKingActivates=true;break;}
+      }
+    }
+  }
+  // Activation en 2 étapes : coup main → tNum=12 → vidage forcé → As dispo → crT jouable
+  // Ex : D♦→P1 (tNum=12) → clear P1 → A♦(Df)→P1 → 2♠(Cr) jouable
+  if(!_nonKingActivates&&_baseCrT&&!_baseCrAlready){
+    for(const m of deduped){
+      if(m.type==='play'&&m.src?.type==='hand'&&m.card.num!==13){
+        const{g:tg,ui:tui}=_sApply(g,ui,pidx,m);
+        const clearCi=tg.commons.findIndex((_,ci2)=>_sTopNum(tg,tui,ci2)===12);
+        if(clearCi>=0){
+          const{g:cg,ui:cui}=_sApply(tg,tui,pidx,{type:'clear',ci:clearCi});
+          const srcs2=_sSources(cg,pidx,false);
+          for(const{card:ac,src:asrc} of srcs2){
+            if(ac.num===1){
+              const{g:ag,ui:aui}=_sApply(cg,cui,pidx,{type:'play',card:ac,src:asrc,ci:clearCi});
+              if(ag.commons.some((_,ci3)=>_sCanOnCommon(ag,aui,_baseCrT,ci3))){_nonKingActivates=true;break;}
+            }
+          }
+        }
+        if(_nonKingActivates) break;
       }
     }
   }
@@ -1068,7 +1125,22 @@ function _bfExpand(seq,aiIdx){
     const crWasPlayable=crTb&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crTb,ci2));
     const crNowPlayable=crTb&&ng.commons.some((_,ci2)=>_sCanOnCommon(ng,nui,crTb,ci2));
     const isHandPlay=mv.type==='play'&&mv.src?.type==='hand';
-    const activatesCrapette=!crWasPlayable&&crNowPlayable;
+    // Activation 2 étapes par ce coup : coup → tNum=12 → vidage forcé → As → crT jouable
+    let activates2Step=false;
+    if(crTb&&!crWasPlayable&&!crNowPlayable){
+      const clearCi2=ng.commons.findIndex((_,ci2)=>_sTopNum(ng,nui,ci2)===12);
+      if(clearCi2>=0){
+        const{g:cg2,ui:cui2}=_sApply(ng,nui,pidx,{type:'clear',ci:clearCi2});
+        const srcs3=_sSources(cg2,pidx,false);
+        for(const{card:ac2,src:asrc2} of srcs3){
+          if(ac2.num===1){
+            const{g:ag2,ui:aui2}=_sApply(cg2,cui2,pidx,{type:'play',card:ac2,src:asrc2,ci:clearCi2});
+            if(ag2.commons.some((_,ci3)=>_sCanOnCommon(ag2,aui2,crTb,ci3))){activates2Step=true;break;}
+          }
+        }
+      }
+    }
+    const activatesCrapette=!crWasPlayable&&(crNowPlayable||activates2Step);
     const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
     // Bonus de tier — hors discount, garantissent la hiérarchie quelle que soit la diff _eval
     // Tier 1 : pose de crapette → +500 (aucune diff _eval dans un tour ne peut combler ça)
@@ -1088,13 +1160,24 @@ function _bfExpand(seq,aiIdx){
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
-    // Bonus soumis au discount (secondaires, réduits après un événement clé)
-    const discounted=(handPlayBonus+kingFromHandPenalty)*currentDiscount;
-    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty;
+    // Pénalité pré-crapette : -55 si la crapette est ACTUELLEMENT jouable mais qu'on joue autre chose.
+    // Pénalité pré-activation : -10 si un coup de main (non-Roi) activerait la crapette mais qu'on joue
+    // un coup non-activateur — empêche de délayer inutilement le chemin vers la crapette.
+    const crCard=!seq.crapettePlayed&&!isCrapettePlay&&g.players[aiIdx].crapette.length
+      ?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
+    const crCurrentlyPlayable=crCard&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crCard,ci2));
+    const preCrapettePenalty=crCurrentlyPlayable?-55
+      :(!seq.crapettePlayed&&_nonKingActivates&&!activatesCrapette)?-10:0;
+    // handPlayBonus hors discount : la valeur d'un coup de main ne dépend pas de sa position
+    // dans la séquence (avant ou après crapette). Seul kingFromHandPenalty reste discounté.
+    const discounted=handPlayBonus+kingFromHandPenalty*currentDiscount;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+preCrapettePenalty;
     // Post-key : les coups suivants seront discountés
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
-    const evalG=isPiocheDiscovery?g:ng, evalUi=isPiocheDiscovery?ui:nui;
+    // init-pioche : la carte est connue dans la simulation → évaluer sur ng (pile remplie, pas de malus vide)
+    // redraw : nouvelles cartes inconnues → évaluer sur g (avant le tirage)
+    const evalG=mv.type==='redraw'?g:ng, evalUi=mv.type==='redraw'?ui:nui;
     const sc=_eval(evalG,evalUi,aiIdx);
     const hs=willTerminate?_evalHandScore(evalG,evalUi,aiIdx):0;
     // Flags d'affichage par coup
@@ -1110,9 +1193,10 @@ function _bfExpand(seq,aiIdx){
       moves:[...seq.moves,mv],
       moveMeta:[...(seq.moveMeta||[]),meta],
       terminated:willTerminate,
-      // Score : pour les terminés, sc+newBonus (définitif)
-      // Pour les intermédiaires, sc+newBonus aussi : le tierBonus guide le beam
-      // vers les branches prometteuses (vider main, crapette) dès les premiers coups
+      // Score : sc+newBonus pour tous les nœuds (terminés et intermédiaires).
+      // Les intermédiaires incluent extraBonus accumulé → guide le beam vers les bonnes branches
+      // (crapette +500, main vide +150 restent visibles par le beam avant termination).
+      // Les early returns utilisent seq.extraBonus (pas newBonus) → pas de double-comptage.
       score:sc+newBonus,
       handScore:willTerminate?hs:0,
       extraBonus:newBonus,
@@ -1258,6 +1342,20 @@ function _aiDiscard(){
       }
     }
     if(moved) continue;
+    // Crapette : peut devenir jouable après un init/clear (ex: Roi posé → pile king-pending)
+    {
+      const crT=peek(G.players[G.cur].crapette);
+      if(crT){
+        for(let ci=0;ci<4;ci++){
+          if(canOnCommon(crT,ci)){
+            _q({type:'play',card:crT,src:{type:'crapette'},ci});
+            _applyMoveToState(G,UI,{type:'play',card:crT,src:{type:'crapette'},ci});
+            moved=true;break;
+          }
+        }
+      }
+    }
+    if(moved) continue;
     // Jouer cartes jouables depuis la main — hors Rois (le BF les aurait inclus si bénéfiques)
     {
       const allMoves=[];
@@ -1281,13 +1379,29 @@ function _aiDiscard(){
   if(!anyPlayable){
     for(let ci=0;ci<4;ci++){
       if(G.commons[ci].length===0&&(G.pioche.length>0||G.futurePioche.length>0)){
-        if(G.pioche.length===0){G.pioche=shuffle([...G.futurePioche]);G.futurePioche=[];}
-        if(G.pioche.length>0){
+        // Boucle : si la carte retournée est une D, on recycle et on en retourne une autre
+        while(G.commons[ci].length===0&&(G.pioche.length>0||G.futurePioche.length>0)){
+          if(G.pioche.length===0){G.pioche=shuffle([...G.futurePioche]);G.futurePioche=[];}
+          if(G.pioche.length===0) break;
           const drn=G.pioche.pop();
           const mva={type:'init',ci,card:drn,src:null,fromPioche:true};
           _q(mva);_applyMoveToState(G,UI,mva);
           if(topNum(ci)===12){
             _q({type:'clear',ci});_applyMoveToState(G,UI,{type:'clear',ci});
+            // pile vide à nouveau → la boucle while réinitiera
+          }
+        }
+        // Après init depuis pioche (ex: Roi → king-pending), la crapette peut être jouable
+        {
+          const crT2=peek(G.players[G.cur].crapette);
+          if(crT2){
+            for(let ci2=0;ci2<4;ci2++){
+              if(canOnCommon(crT2,ci2)){
+                _q({type:'play',card:crT2,src:{type:'crapette'},ci:ci2});
+                _applyMoveToState(G,UI,{type:'play',card:crT2,src:{type:'crapette'},ci:ci2});
+                break;
+              }
+            }
           }
         }
         break; // une seule pile à la fois
