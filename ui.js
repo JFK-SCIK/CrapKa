@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.10';
+const _VER_UI='1.2.12';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -440,6 +440,24 @@ function renderMiddle(){
   return h;
 }
 
+function _buildVerBadge(){
+  const exp=window._EXPECTED||{};
+  const actual={game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP};
+  const mismatches=Object.keys(actual).filter(k=>exp[k]&&actual[k]!==exp[k]);
+  const maxVer=Object.values(actual).reduce((best,v)=>{
+    const [a1,a2,a3]=(best||'0.0.0').split('.').map(Number);
+    const [b1,b2,b3]=v.split('.').map(Number);
+    return(b1>a1||(b1===a1&&b2>a2)||(b1===a1&&b2===a2&&b3>a3))?v:best;
+  });
+  const detail=Object.keys(actual).map(k=>{
+    const ok=!exp[k]||actual[k]===exp[k];
+    return k+':'+actual[k]+(ok?'':' ✗exp:'+exp[k]);
+  }).join(' | ');
+  const col=mismatches.length===0?'#2ecc71':'#e74c3c';
+  const lbl=mismatches.length===0?'OK':'KO';
+  return '<span style="color:'+col+';font-weight:bold;cursor:default;" title="'+detail+'">'+lbl+' v'+maxVer+'</span>';
+}
+
 function renderMenu(){
   document.getElementById('game').innerHTML=`
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -457,7 +475,7 @@ function renderMenu(){
           🤖 Contre l'IA
         </button>
       </div>
-      <p style="color:var(--text2);font-size:0.65rem;text-align:center;max-width:250px;">v0.4</p>
+      <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>
     </div>`;
   // btn-ai supprimé, géré par step-next
 }
@@ -507,7 +525,8 @@ function renderBFSeq(){
     }
     return;
   }
-  title.textContent='Séquences BF ('+seqs.length+')';
+  const expCount=window._dbgBFExpansions!=null?' · '+window._dbgBFExpansions+' exp':'';
+  title.textContent='Séquences BF ('+seqs.length+expCount+')';
   let bestEl=null;
   for(const s of seqs){
     const e=document.createElement('div');
@@ -525,7 +544,7 @@ function renderBFSeq(){
         const isTrigger=meta.isCrapettePlay||meta.handEmptied||meta.isClear;
         const inner=isTrigger?'<u>'+txt+'</u>':txt;
         // Priorité haute : coups de crapette et coups activant la crapette → vert gras
-        if(meta.isCrapettePlay||meta.activatesCrapette) return '<b style="color:#2ecc71">'+inner+'</b>';
+        if(meta.isCrapettePlay||meta.isOnPath) return '<b style="color:#2ecc71">'+inner+'</b>';
         // Vidage de main → gras (souligné si c'est le coup exact)
         if(meta.handEmptied) return '<b>'+inner+'</b>';
         // Post-déclencheur → italique grisé (après crapette/vidage/recyclage)
@@ -772,7 +791,7 @@ function _traceBF(sequences,best,aiIdx){
       const isPost=(s.triggerIdx??-1)!==-1&&idx>s.triggerIdx;
       const txt=_fmtMove(m);
       if(isPost) return '*'+txt+'*';
-      if(meta.activatesCrapette) return '>>>'+txt+'<<<';
+      if(meta.isOnPath) return '>>>'+txt+'<<<';
       if(meta.handEmptied||meta.isCrapettePlay||meta.isClear) return '_'+txt+'_';
       return txt;
     }).join(' | ')||'(fin)';
@@ -842,20 +861,7 @@ function showStartModal(first, reason){
     +'padding:22px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;'
     +'max-width:320px;text-align:center;';
 
-  const exp=window._EXPECTED||{};
-  const actual={game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP};
-  const mismatches=Object.keys(actual).filter(k=>exp[k]&&actual[k]!==exp[k]);
-  let verBadge;
-  if(mismatches.length===0){
-    const v=actual.game;
-    verBadge='<span style="color:#2ecc71;font-weight:bold;">OK:v'+v+'</span>';
-  } else {
-    const detail=Object.keys(actual).map(k=>{
-      const ok=!exp[k]||actual[k]===exp[k];
-      return ok?k+':'+actual[k]:'<b>'+k+':'+actual[k]+'</b>(exp:'+exp[k]+')';
-    }).join(' ');
-    verBadge='<span style="color:#e74c3c;font-weight:bold;">KO </span><span style="color:#e74c3c;">'+detail+'</span>';
-  }
+  const verBadge=_buildVerBadge();
   box.innerHTML=
     '<div style="font-size:1.4rem">🃏</div>'
     +'<div><b style="font-size:1.05em;color:var(--gold)">'+name+'</b> commence'

@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.2.32';
+const _VER_AI='1.2.33';
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
 let _aiTimer=null;
@@ -1048,6 +1048,71 @@ function _bfDedup(moves,p,g){
   return out;
 }
 
+// Vérifie si une carte (num donné) est accessible pour construire le chemin vers la crapette :
+// main, sommet défausse propre, défausse masquée à 1 niveau, ou demande adverse (si disponible).
+function _sCardAvailableForPath(g,ui,pidx,num){
+  const p=g.players[pidx];
+  if(p.hand.some(c=>c.num===num)) return true;
+  if(p.defausse.some(d=>d.length&&d[d.length-1].num===num)) return true;
+  if(p.defausse.some(d=>d.length>=2&&d[d.length-2].num===num)) return true;
+  if(!g.demandMadeThisTurn&&g.startDefSnap){
+    for(let di=0;di<4;di++){
+      const snap=g.startDefSnap[di];
+      if(snap&&snap.length&&snap[snap.length-1].num===num) return true;
+    }
+  }
+  return false;
+}
+
+// Calcule l'ensemble des numéros de carte indispensables pour jouer la crapette.
+// Remonte la chaîne arrière depuis crT : trouve les cartes à jouer dans l'ordre pour libérer la voie.
+// Gère : chaîne séquentielle, vidage forcé (tNum=12→clear→pile vide→As), substitution par Roi.
+// Retourne null si : pas de crapette, crT déjà jouable, ou chemin impossible.
+function _buildCrapettePath(g,ui,pidx){
+  const cr=g.players[pidx].crapette;
+  if(!cr.length) return null;
+  const crT=cr[cr.length-1];
+  if(g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci))) return null;
+  const pathNums=new Set();
+  let target=crT.num-1;
+  let limit=15;
+  while(limit-->0){
+    if(g.commons.some((_,ci)=>_sTopNum(g,ui,ci)===target)) break;
+    if(target===0){
+      // Pile vide requise → vient d'un vidage forcé après tNum=12
+      if(pathNums.has(12)) break;
+      if(!_sCardAvailableForPath(g,ui,pidx,12)) return null;
+      pathNums.add(12);
+      target=11;
+      continue;
+    }
+    // Besoin de la carte num=target sur une pile à tNum=target-1
+    if(!_sCardAvailableForPath(g,ui,pidx,target)) return null;
+    pathNums.add(target);
+    const prevTarget=target-1;
+    // La pile avec tNum=prevTarget existe déjà → chaîne établie
+    if(prevTarget===0?g.commons.some(p2=>!p2.length):g.commons.some((_,ci)=>_sTopNum(g,ui,ci)===prevTarget)) break;
+    // Substitution par Roi : K→pile(tNum∈[1,11]) crée king-pending → target peut s'y poser
+    if(target!==1&&prevTarget>=1){
+      const anyPileForKing=g.commons.some((_,ci)=>{const t=_sTopNum(g,ui,ci);return t>0&&t<12;});
+      if(anyPileForKing&&g.players[pidx].hand.some(c=>c.num===13)){
+        pathNums.add(13);
+        break;
+      }
+    }
+    target=prevTarget;
+  }
+  // Coups de démasquage : si une carte du chemin est masquée en défausse, la carte du dessus est aussi indispensable
+  const unmaskNums=new Set();
+  for(const num of pathNums){
+    g.players[pidx].defausse.forEach(d=>{
+      if(d.length>=2&&d[d.length-2].num===num) unmaskNums.add(d[d.length-1].num);
+    });
+  }
+  for(const n of unmaskNums) pathNums.add(n);
+  return pathNums.size>0?pathNums:null;
+}
+
 // Développe une séquence active en autant de séquences qu'il y a de coups légaux.
 function _bfExpand(seq,aiIdx){
   const {g,ui}=seq.state;
@@ -1072,45 +1137,12 @@ function _bfExpand(seq,aiIdx){
   if(p.hand.length===0&&!lm.some(m=>m.type==='end')&&!lm.some(m=>m.type==='play'||m.type==='demand'))
     return[{...seq,terminated:true,score:_eval(g,ui,aiIdx)+seq.extraBonus,handScore:_evalHandScore(g,ui,aiIdx)}];
 
-  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx),p,g);
-  // Pré-calculer si un coup non-Roi depuis la main active aussi la crapette.
-  // Si oui, le Roi ne devrait pas "gaspiller" son activation — préférer le non-Roi.
-  const _baseCrT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
-  const _baseCrAlready=_baseCrT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,_baseCrT,ci));
-  let _nonKingActivates=false;
-  if(_baseCrT&&!_baseCrAlready){
-    for(const m of deduped){
-      if(m.type==='play'&&m.src?.type==='hand'&&m.card.num!==13){
-        const{g:tg,ui:tui}=_sApply(g,ui,pidx,m);
-        if(tg.commons.some((_,ci)=>_sCanOnCommon(tg,tui,_baseCrT,ci))){_nonKingActivates=true;break;}
-      }
-    }
-  }
-  // Activation en 2 étapes : coup main → tNum=12 → vidage forcé → As dispo → crT jouable
-  // Ex : D♦→P1 (tNum=12) → clear P1 → A♦(Df)→P1 → 2♠(Cr) jouable
-  if(!_nonKingActivates&&_baseCrT&&!_baseCrAlready){
-    for(const m of deduped){
-      if(m.type==='play'&&m.src?.type==='hand'&&m.card.num!==13){
-        const{g:tg,ui:tui}=_sApply(g,ui,pidx,m);
-        const clearCi=tg.commons.findIndex((_,ci2)=>_sTopNum(tg,tui,ci2)===12);
-        if(clearCi>=0){
-          const{g:cg,ui:cui}=_sApply(tg,tui,pidx,{type:'clear',ci:clearCi});
-          const srcs2=_sSources(cg,pidx,false);
-          for(const{card:ac,src:asrc} of srcs2){
-            if(ac.num===1){
-              const{g:ag,ui:aui}=_sApply(cg,cui,pidx,{type:'play',card:ac,src:asrc,ci:clearCi});
-              if(ag.commons.some((_,ci3)=>_sCanOnCommon(ag,aui,_baseCrT,ci3))){_nonKingActivates=true;break;}
-            }
-          }
-        }
-        if(_nonKingActivates) break;
-      }
-    }
-  }
-  // Facteur de discount : après crapette jouée OU jeu sur pile vide, les bonus suivants
-  // sont réduits à 30% → seul un vidage total de main peut contrebalancer défausse vs main.
+  // Chemin vers la crapette : ensemble des numéros de carte indispensables depuis l'état courant.
+  // Les coups sur le chemin reçoivent leur bonus plein ; les autres sont discountés (BF_DISCOUNT).
+  const hasCrapettePath=g.players[aiIdx].crapette.length>0;
+  const pathNums=hasCrapettePath?_buildCrapettePath(g,ui,aiIdx):null;
+  const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx,pathNums),p,g);
   const BF_DISCOUNT=0.3;
-  const currentDiscount=seq.postKey?BF_DISCOUNT:1;
 
   return deduped.map((mv,i)=>{
     const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
@@ -1120,58 +1152,32 @@ function _bfExpand(seq,aiIdx){
     // Bonus cumulés : crapette→pile (+50), tout coup activant crapette (+25), autre main→pile (+5)
     // Note : le bonus d'activation (+25) s'applique quelle que soit la source (main OU défausse),
     // car jouer 2 depuis la défausse sur un As vaut autant que jouer un Roi depuis la main.
-    const crTb=!isCrapettePlay&&g.players[aiIdx].crapette.length
-      ?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
-    const crWasPlayable=crTb&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crTb,ci2));
-    const crNowPlayable=crTb&&ng.commons.some((_,ci2)=>_sCanOnCommon(ng,nui,crTb,ci2));
     const isHandPlay=mv.type==='play'&&mv.src?.type==='hand';
-    // Activation 2 étapes par ce coup : coup → tNum=12 → vidage forcé → As → crT jouable
-    let activates2Step=false;
-    if(crTb&&!crWasPlayable&&!crNowPlayable){
-      const clearCi2=ng.commons.findIndex((_,ci2)=>_sTopNum(ng,nui,ci2)===12);
-      if(clearCi2>=0){
-        const{g:cg2,ui:cui2}=_sApply(ng,nui,pidx,{type:'clear',ci:clearCi2});
-        const srcs3=_sSources(cg2,pidx,false);
-        for(const{card:ac2,src:asrc2} of srcs3){
-          if(ac2.num===1){
-            const{g:ag2,ui:aui2}=_sApply(cg2,cui2,pidx,{type:'play',card:ac2,src:asrc2,ci:clearCi2});
-            if(ag2.commons.some((_,ci3)=>_sCanOnCommon(ag2,aui2,crTb,ci3))){activates2Step=true;break;}
-          }
-        }
-      }
-    }
-    const activatesCrapette=!crWasPlayable&&(crNowPlayable||activates2Step);
-    const handPlayBonus=activatesCrapette?25:(isHandPlay?5:0);
+    // Coup sur le chemin vers la crapette : card.num ∈ pathNums, ou clear (toujours sur le chemin)
+    const isOnPath=!seq.postKey&&pathNums&&(
+      mv.type==='clear'||(mv.card&&pathNums.has(mv.card.num))
+    );
+    // Discount : coups hors-chemin pondérés comme s'ils étaient joués après la crapette
+    const moveDiscount=(seq.postKey||(hasCrapettePath&&!isOnPath))?BF_DISCOUNT:1;
+    // Bonus de coup : +5 pour tout coup sur le chemin (main OU défausse), sinon discounté
+    const handPlayBonus=(isHandPlay||(mv.src?.type==='defausse'&&isOnPath))?5:0;
     // Bonus de tier — hors discount, garantissent la hiérarchie quelle que soit la diff _eval
     // Tier 1 : pose de crapette → +500 (aucune diff _eval dans un tour ne peut combler ça)
     // Tier 2 : vidage de main → +150 (entre max diff _eval ~80 et tier1 500)
     // Main vidée par un coup sur pile (pas par défausse) → on va repiocher
     const handEmptied=mv.type!=='end'&&p.hand.length>0&&ng.players[pidx].hand.length===0;
     const tierBonus=isCrapettePlay?500:handEmptied?150:0;
-    // Malus Roi de main :
-    // • Pas d'activation crapette → −35 (ne jouer R que pour Crapette ou vider Main)
-    // • Activation, mais un non-Roi active aussi → −15 (préférer garder le Roi en main)
-    // • Activation et seul le Roi peut activer → 0 (le Roi est nécessaire ici)
-    const kingFromHandPenalty=isHandPlay&&mv.card.num===13
-      ?(!activatesCrapette?-35:(_nonKingActivates?-15:0))
-      :0;
+    // Malus Roi de main : sur le chemin → 0 (Roi nécessaire) ; hors chemin → −35 (inutile)
+    const kingFromHandPenalty=isHandPlay&&mv.card.num===13?(isOnPath?0:-35):0;
     // Malus défausse vs main : si même valeur disponible en main, pénaliser le coup défausse.
     // Non soumis au discount : garanti quelle que soit la position dans la séquence.
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
-    // Pénalité pré-crapette : -55 si la crapette est ACTUELLEMENT jouable mais qu'on joue autre chose.
-    // Pénalité pré-activation : -10 si un coup de main (non-Roi) activerait la crapette mais qu'on joue
-    // un coup non-activateur — empêche de délayer inutilement le chemin vers la crapette.
-    const crCard=!seq.crapettePlayed&&!isCrapettePlay&&g.players[aiIdx].crapette.length
-      ?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
-    const crCurrentlyPlayable=crCard&&g.commons.some((_,ci2)=>_sCanOnCommon(g,ui,crCard,ci2));
-    const preCrapettePenalty=crCurrentlyPlayable?-55
-      :(!seq.crapettePlayed&&_nonKingActivates&&!activatesCrapette)?-10:0;
-    // handPlayBonus hors discount : la valeur d'un coup de main ne dépend pas de sa position
-    // dans la séquence (avant ou après crapette). Seul kingFromHandPenalty reste discounté.
-    const discounted=handPlayBonus+kingFromHandPenalty*currentDiscount;
-    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+preCrapettePenalty;
+    // Tous les bonus/malus sont pondérés par moveDiscount : coups hors-chemin valent
+    // la même chose que s'ils étaient joués après la crapette → séquences directes privilégiées.
+    const discounted=(handPlayBonus+kingFromHandPenalty)*moveDiscount;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty;
     // Post-key : les coups suivants seront discountés
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
@@ -1184,7 +1190,7 @@ function _bfExpand(seq,aiIdx){
     const isClear=mv.type==='clear';
     // "découverte" = les coups suivants portent sur des cartes inconnues
     const isDiscovery=isCrapettePlay||isPiocheDiscovery||(mv.type==='redraw');
-    const meta={activatesCrapette,handEmptied,isCrapettePlay,isClear};
+    const meta={isOnPath,handEmptied,isCrapettePlay,isClear};
     // triggerIdx : index du coup découverte → les coups APRÈS sont en italique gris
     const newTriggerIdx=seq.triggerIdx!==-1?seq.triggerIdx:(isDiscovery?seq.moves.length:-1);
     return{
@@ -1208,25 +1214,19 @@ function _bfExpand(seq,aiIdx){
 }
 
 // Trie les coups par catégorie de priorité :
-// crapette → init/clear → piles_activant_crapette → autres_piles → demande → défausse
-// "piles_activant_crapette" inclut main ET défausse : toute source qui rend la crapette jouable.
-function _bfSortMoves(moves,g,ui,aiIdx){
-  const crT=g.players[aiIdx].crapette.length?g.players[aiIdx].crapette[g.players[aiIdx].crapette.length-1]:null;
-  const crAlreadyPlayable=crT&&g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
+// crapette → init/clear → coups_sur_chemin → autres_piles → demande → défausse
+function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
   const crapette=moves.filter(m=>m.type==='play'&&m.src?.type==='crapette');
   const init    =moves.filter(m=>m.type==='init'||m.type==='clear');
   const nonCrPiles=moves.filter(m=>m.type==='play'&&m.src?.type!=='crapette');
-  let pilesActivating=[],pilesOther=nonCrPiles;
-  if(crT&&!crAlreadyPlayable&&nonCrPiles.length){
-    pilesActivating=nonCrPiles.filter(m=>{
-      const {g:ng,ui:nui}=_sApply(g,ui,g.cur,m);
-      return ng.commons.some((_,ci)=>_sCanOnCommon(ng,nui,crT,ci));
-    });
-    pilesOther=nonCrPiles.filter(m=>!pilesActivating.includes(m));
+  let pilesOnPath=[],pilesOther=nonCrPiles;
+  if(pathNums&&nonCrPiles.length){
+    pilesOnPath=nonCrPiles.filter(m=>m.card&&pathNums.has(m.card.num));
+    pilesOther =nonCrPiles.filter(m=>!pilesOnPath.includes(m));
   }
   const demand=moves.filter(m=>m.type==='demand');
   const end   =moves.filter(m=>m.type==='end');
-  return[...crapette,...init,...pilesActivating,...pilesOther,...demand,...end];
+  return[...crapette,...init,...pilesOnPath,...pilesOther,...demand,...end];
 }
 
 // Appliquer un move à G/UI globaux
