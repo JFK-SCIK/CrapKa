@@ -251,3 +251,10 @@ body{
 /* SPEED */
 #speedrow{display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);}
 #speedrow input{width:55px;}
+/* PORTRAIT OVERLAY (D10) */
+#portrait-overlay{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+}
+#portrait-box{text-align:center;padding:32px 24px;}

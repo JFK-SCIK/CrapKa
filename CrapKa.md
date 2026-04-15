@@ -275,6 +275,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
 | D8 | ✅ fait | Animation victoire : overlay `#victory-overlay` avec fade-in + scale-up CSS, 300ms après le game-over. `showMenu()` supprime l'overlay. |
 | D9 | ✅ fait | **Panneau de démarrage non-bloquant** — `showStartModal(first, reason)` affiche un overlay positionné sur `#game` uniquement (header accessible). Indique qui commence et pourquoi. Bouton "▶ Lancer la partie" démarre. Contrôles debug/PàP/trace du header restent cliquables pendant l'attente. Les cartes sont non-jouables tant que `_waitingToStart=true` (guard dans `isHumanTurn()`). Le panneau (`_startPanel`) survit aux appels `render()` : référence globale réinjectée dans `#game` à chaque rendu. `showMenu()` nettoie `_startPanel` et `_waitingToStart`. |
+| D10 | ✅ fait | **Overlay portrait mobile** — `_updatePortraitOverlay()` dans `ui.js` : affiche un overlay plein écran "Tournez votre écran" quand `innerWidth < innerHeight && innerWidth < 900`. Masqué automatiquement en paysage. Déclenché sur `resize` et `orientationchange` (+ délai 50ms pour laisser le navigateur se stabiliser). |
 
 ### Long terme
 - Suite descendante en Défausse (règle optionnelle)

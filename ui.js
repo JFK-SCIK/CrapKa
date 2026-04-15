@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.12';
+const _VER_UI='1.2.13';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1028,7 +1028,32 @@ function computeLayout(){
   document.addEventListener('touchend',onUp);
 })();
 
-window.addEventListener('resize',()=>{computeLayout();});
+window.addEventListener('resize',()=>{computeLayout();_updatePortraitOverlay();});
+
+// ══════════════════════════════════════════════
+// OVERLAY PORTRAIT MOBILE (D10)
+// ══════════════════════════════════════════════
+function _updatePortraitOverlay(){
+  const portrait=window.innerWidth<window.innerHeight&&window.innerWidth<900;
+  let ov=document.getElementById('portrait-overlay');
+  if(portrait){
+    if(!ov){
+      ov=document.createElement('div');
+      ov.id='portrait-overlay';
+      ov.innerHTML=
+        '<div id="portrait-box">'
+        +'<div style="font-size:3.5rem">📱</div>'
+        +'<div style="font-size:1.15rem;font-weight:bold;color:var(--gold);margin-top:14px">Tournez votre écran</div>'
+        +'<div style="font-size:0.83rem;color:var(--text2);margin-top:8px">CrapKa se joue en mode paysage</div>'
+        +'</div>';
+      document.body.appendChild(ov);
+    }
+  } else {
+    if(ov) ov.remove();
+  }
+}
+window.addEventListener('orientationchange',()=>{setTimeout(_updatePortraitOverlay,50);});
+_updatePortraitOverlay();
 
 // ══════════════════════════════════════════════
 // ANIMATION VICTOIRE (D8)
