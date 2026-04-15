@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.13';
+const _VER_UI='1.2.14';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -946,16 +946,28 @@ function snapshot(){
 // ══════════════════════════════════════════════
 function computeLayout(){
   const root=document.documentElement;
-  const sideW=parseInt(getComputedStyle(root).getPropertyValue('--log-w'))||115;
+  const isMobilePortrait=window.innerWidth<window.innerHeight&&window.innerWidth<900;
 
-  // Espace disponible pour le jeu
   const totalW=window.innerWidth;
   const totalH=window.innerHeight;
   const hdrH=document.getElementById('hdr').offsetHeight||32;
   const statusH=document.getElementById('status').offsetHeight||22;
-  const abarH=document.getElementById('abar').offsetHeight||32;
-  const gameW=totalW-sideW-5; // 5px resizer
-  const gameH=totalH-hdrH-statusH-abarH;
+
+  let gameW,gameH;
+  if(isMobilePortrait){
+    // Portrait mobile : sidebar en bas, pleine largeur
+    const logH=document.getElementById('sidebar').offsetHeight||72;
+    gameW=totalW;
+    gameH=totalH-hdrH-statusH-logH;
+  } else {
+    // Desktop / paysage : sidebar à droite
+    const sideW=parseInt(getComputedStyle(root).getPropertyValue('--log-w'))||115;
+    const abarH=document.getElementById('abar').offsetHeight||32;
+    gameW=totalW-sideW-5; // 5px resizer
+    gameH=totalH-hdrH-statusH-abarH;
+    // Font log adaptative à la largeur du sidebar
+    root.style.setProperty('--log-fs',Math.max(8,Math.min(11,Math.round(sideW/12)))+'px');
+  }
 
   // Taille des cartes déterminée par la hauteur disponible.
   // Layout : pzone(top) + mid(1 ligne) + pzone(bot)
@@ -970,7 +982,6 @@ function computeLayout(){
   const cwFromW=Math.floor((gameW-60)/10);
 
   // La hauteur fixe la taille idéale ; la largeur la réduit si elle manque.
-  // Pas de minimum sur cwFromW : les cartes doivent pouvoir rétrécir autant que nécessaire.
   let cw=Math.min(62,cwFromH);
   if(cw>cwFromW) cw=cwFromW;
   cw=Math.max(20,cw); // plancher absolu pour rester lisible
@@ -978,13 +989,8 @@ function computeLayout(){
 
   root.style.setProperty('--cw',cw+'px');
   root.style.setProperty('--ch',ch+'px');
-  // Fontes proportionnelles
   root.style.setProperty('--cf',Math.max(8,Math.round(cw*0.22))+'px');
   root.style.setProperty('--cs',Math.max(10,Math.round(cw*0.38))+'px');
-
-  // Font log adaptative à la largeur du sidebar
-  const logFs=Math.max(8,Math.min(11,Math.round(sideW/12)));
-  root.style.setProperty('--log-fs',logFs+'px');
 }
 
 // Resizer drag
@@ -1028,32 +1034,8 @@ function computeLayout(){
   document.addEventListener('touchend',onUp);
 })();
 
-window.addEventListener('resize',()=>{computeLayout();_updatePortraitOverlay();});
-
-// ══════════════════════════════════════════════
-// OVERLAY PORTRAIT MOBILE (D10)
-// ══════════════════════════════════════════════
-function _updatePortraitOverlay(){
-  const portrait=window.innerWidth<window.innerHeight&&window.innerWidth<900;
-  let ov=document.getElementById('portrait-overlay');
-  if(portrait){
-    if(!ov){
-      ov=document.createElement('div');
-      ov.id='portrait-overlay';
-      ov.innerHTML=
-        '<div id="portrait-box">'
-        +'<div style="font-size:3.5rem">📱</div>'
-        +'<div style="font-size:1.15rem;font-weight:bold;color:var(--gold);margin-top:14px">Tournez votre écran</div>'
-        +'<div style="font-size:0.83rem;color:var(--text2);margin-top:8px">CrapKa se joue en mode paysage</div>'
-        +'</div>';
-      document.body.appendChild(ov);
-    }
-  } else {
-    if(ov) ov.remove();
-  }
-}
-window.addEventListener('orientationchange',()=>{setTimeout(_updatePortraitOverlay,50);});
-_updatePortraitOverlay();
+window.addEventListener('resize',()=>{computeLayout();});
+window.addEventListener('orientationchange',()=>{setTimeout(computeLayout,50);});
 
 // ══════════════════════════════════════════════
 // ANIMATION VICTOIRE (D8)

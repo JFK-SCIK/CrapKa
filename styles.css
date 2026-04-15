@@ -251,10 +251,24 @@ body{
 /* SPEED */
 #speedrow{display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);}
 #speedrow input{width:55px;}
-/* PORTRAIT OVERLAY (D10) */
-#portrait-overlay{
-  position:fixed;inset:0;z-index:9999;
-  background:var(--bg);
-  display:flex;align-items:center;justify-content:center;
+/* PORTRAIT MOBILE (D10) */
+@media (orientation:portrait) and (max-width:900px){
+  #main{flex-direction:column;}
+  #resizer{display:none;}
+  #sidebar{
+    width:100%!important;height:72px;min-width:unset;max-width:unset;
+    flex-shrink:0;border-top:1px solid var(--bg3);
+  }
+  #seqlog{display:none!important;}
+  .stitle{display:none;}
+  #movelog{
+    flex-direction:row;flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;
+    gap:6px;padding:4px 8px;
+  }
+  .mle{white-space:nowrap;flex-shrink:0;}
+  /* Header compact : titre masqué, tous les boutons sauf Menu masqués */
+  #hdr h1{display:none;}
+  #hdr{padding:3px 8px;}
+  #speedrow,#step-controls,#hdr-controls>.btn:not(.red){display:none!important;}
 }
-#portrait-box{text-align:center;padding:32px 24px;}
