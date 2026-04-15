@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.14';
+const _VER_UI='1.2.15';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -976,10 +976,10 @@ function computeLayout(){
   // Total ≈ 5*ch + 120px  → ch = (gameH - 120) / 5  → cw = ch / 1.41
   const cwFromH=Math.floor((gameH-120)/5/1.41);
 
-  // Contrainte horizontale : zone joueur = crapette(1) + 4 défausses(4) + main(5) = 10 cols + gaps
-  // (plus contraignante que la ligne mid : 6 cols)
-  // → cw = (gameW - 60) / 10
-  const cwFromW=Math.floor((gameW-60)/10);
+  // Contrainte horizontale : right-col empile défausses et main → max = 5 cols (main)
+  // pzone = cr(1) + gap + right-col(5) = 6 cols + marges (~40px)
+  // → cw = (gameW - 40) / 6
+  const cwFromW=Math.floor((gameW-40)/6);
 
   // La hauteur fixe la taille idéale ; la largeur la réduit si elle manque.
   let cw=Math.min(62,cwFromH);
