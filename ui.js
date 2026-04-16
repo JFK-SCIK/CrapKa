@@ -468,9 +468,6 @@ function renderMenu(){
         <p style="color:var(--text2);margin-top:6px;font-size:0.82rem">Le jeu de cartes familial</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:230px;">
-        <button class="btn red" style="padding:13px;font-size:0.95rem;" onclick="newGame(false)">
-          🧑‍🤝‍🧑 2 Joueurs — même écran
-        </button>
         <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="newGame(true)">
           🤖 Contre l'IA
         </button>
