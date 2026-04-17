@@ -169,6 +169,16 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
         G['startKingPendSnap'] = G['pileKingPending'][:]
 
         G['cur'] = opp
+
+        # Auto-distribue au nouveau joueur actif (miroir de nextPlayer→drawToFive)
+        opp_p = G['players'][opp]
+        _ensure_pioche(G)
+        needed = 5 - len(opp_p['hand'])
+        if needed > 0 and G['pioche']:
+            drawn = G['pioche'][-needed:]
+            G['pioche'] = G['pioche'][:-needed]
+            opp_p['hand'] = sorted(opp_p['hand'] + drawn, key=lambda c: c['num'])
+
         return True, ''
 
     # ── init_pile ─────────────────────────────────────────────────────────────

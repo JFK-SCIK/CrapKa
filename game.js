@@ -44,7 +44,8 @@ function newGame(vsAI){
   UI={sel:null,vtgts:[],vsAI,aiIdx:1,
       pileKingVal:[null,null,null,null],
       pileKingPending:[false,false,false,false],
-      _lastKingInfo:null};
+      _lastKingInfo:null,
+      netMode:false, pidx:null};
 
   // Chaque joueur a son propre jeu de 52 cartes distinct et mélangé indépendamment
   const deck0=shuffle(makeDeck()); // jeu J1
@@ -237,6 +238,7 @@ function resolveKingPushed(ci){
 // ACTIONS
 // ══════════════════════════════════════════════
 function drawToFive(cb){
+  if(UI.netMode){netSendMove({action:'draw'});if(cb)cb();return;}
   const p=G.players[G.cur];
   if(p.hand.length>=5){if(cb)cb();return;}
 
@@ -295,6 +297,10 @@ function srcLabel(src){
 // L'état est modifié IMMÉDIATEMENT. L'animation est cosmétique.
 function playOnCommon(card,src,ci,cb){
   if(!canOnCommon(card,ci)){if(cb)cb(false);return false;}
+  if(UI.netMode&&!window._simulating){
+    netSendMove({action:'play',card_uid:card.uid,src_type:src.type,src_index:src.index??null,target_index:ci});
+    if(cb)cb(true);return true;
+  }
   if(isHumanTurn()&&!window._simulating) saveUndo();
 
   // Capturer positions AVANT modification d'état
@@ -374,6 +380,7 @@ function clearCommonNoLog(ci){
   setTimeout(()=>{_animating=false;},200);
 }
 function clearCommon(ci){
+  if(UI.netMode&&!window._simulating){netSendMove({action:'clear_pile',target_index:ci});return;}
   if(isHumanTurn()&&!window._simulating) saveUndo();
   clearCommonNoLog(ci);
   addMoveLog('P'+(ci+1)+'→♻️',P_COLORS[G.cur]);
@@ -381,6 +388,11 @@ function clearCommon(ci){
 
 // ── Initialiser pile vide ──
 function initCommon(ci,card,src,cb){
+  if(UI.netMode&&!window._simulating){
+    if(card) netSendMove({action:'init_pile',card_uid:card.uid,target_index:ci,from_pioche:false});
+    else     netSendMove({action:'init_pile',target_index:ci,from_pioche:true});
+    if(cb)cb();return;
+  }
   if(isHumanTurn()&&!window._simulating) saveUndo();
   if(card){
     const fromEl=findCardEl(card,src);
@@ -459,6 +471,12 @@ function checkBlocked(){
 
 // Fin de tour via défausse
 function endTurnViaDiscard(card,src,di,afterCb){
+  if(UI.netMode){
+    netSendMove({action:'discard',card_uid:card.uid,defausse_index:di});
+    UI.sel=null;UI.vtgts=[];
+    if(afterCb)afterCb();
+    return;
+  }
   discardCard(card,src,di,(ok)=>{
     if(!ok){setStatus('Impossible (as sur as uniquement)');if(afterCb)afterCb();return;}
     UI.sel=null;UI.vtgts=[];
@@ -527,14 +545,24 @@ function wasPlayableAtStartOfTurn(oppIdx,defIdx){
 
 function tryDemand(oppIdx,defIdx){
   if(oppIdx===G.cur) return;
-  if(G.demandMadeThisTurn){
-    setStatus('Une seule demande par tour');return;
-  }
-  if(!wasPlayableAtStartOfTurn(oppIdx,defIdx)){
-    setStatus('Cette carte ne peut pas être demandée');return;
-  }
+  if(G.demandMadeThisTurn){setStatus('Une seule demande par tour');return;}
+  if(!wasPlayableAtStartOfTurn(oppIdx,defIdx)){setStatus('Cette carte ne peut pas être demandée');return;}
   const card=peek(G.players[oppIdx].defausse[defIdx]);
   if(!card) return;
+  if(UI.netMode){
+    const savedCur=G.cur; G.cur=oppIdx;
+    for(let ci=0;ci<4;ci++){
+      if(canOnCommon(card,ci)){
+        G.cur=savedCur;
+        netSendMove({action:'demand',card_uid:card.uid,src_index:defIdx,target_index:ci});
+        G.demandMadeThisTurn=true;
+        return;
+      }
+    }
+    G.cur=savedCur;
+    setStatus('Aucune pile disponible pour cette demande');
+    return;
+  }
   if(!window._simulating) saveUndo();
   const savedCur=G.cur;
   G.cur=oppIdx;

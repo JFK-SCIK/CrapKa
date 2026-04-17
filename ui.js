@@ -36,7 +36,10 @@ function flyCard(card,fromR,toR,cb){
 // ══════════════════════════════════════════════
 // INTERACTIONS HUMAIN
 // ══════════════════════════════════════════════
-function isHumanTurn(){return !_animating&&!_waitingToStart&&!(UI.vsAI&&G.cur===UI.aiIdx);}
+function isHumanTurn(){
+  if(UI.netMode) return netIsMyTurn();
+  return !_animating&&!_waitingToStart&&!(UI.vsAI&&G.cur===UI.aiIdx);
+}
 
 function selectCard(card,src){
   if(!G||G.phase==='game-over'||!isHumanTurn()) return;
@@ -173,8 +176,9 @@ function clickHand(uid){
 function clickEmptyHand(){
   if(!G||G.phase==='game-over'||!isHumanTurn()) return;
   const p=G.players[G.cur];
-  if(p.hand.length>0) return; // main non vide, ignorer
+  if(p.hand.length>0) return;
   if(G.pioche.length===0&&G.futurePioche.length===0){setStatus('Pioche vide !');return;}
+  if(UI.netMode){netSendMove({action:'draw'});return;}
   drawToFive(()=>{render();setStatus(`Main : ${G.players[G.cur].hand.length} carte(s)`);});
 }
 
@@ -470,6 +474,12 @@ function renderMenu(){
       <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:230px;">
         <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="newGame(true)">
           🤖 Contre l'IA
+        </button>
+        <button class="btn" style="padding:13px;font-size:0.95rem;" onclick="showNetCreatePanel()">
+          🌐 Créer une partie
+        </button>
+        <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="showNetJoinPanel()">
+          🔗 Rejoindre une partie
         </button>
       </div>
       <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>
@@ -1041,7 +1051,7 @@ function showVictory(winnerIdx){
   if(!G) return;
   const existing=document.getElementById('victory-overlay');
   if(existing) existing.remove();
-  const humanWon=!UI.vsAI||winnerIdx!==UI.aiIdx;
+  const humanWon=UI.netMode?(winnerIdx===UI.pidx):(!UI.vsAI||winnerIdx!==UI.aiIdx);
   const name=G.players[winnerIdx].name;
   const ov=document.createElement('div');
   ov.id='victory-overlay';
