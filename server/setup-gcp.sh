@@ -17,6 +17,7 @@ if [ -d "CrapKa" ]; then
   cd CrapKa && git pull origin reseau-2j && cd ..
 else
   git clone https://github.com/JFK-SCIK/CrapKa.git
+  cd CrapKa && git checkout reseau-2j && cd ..
 fi
 
 echo "=== 4. Setup environnement Python ==="
