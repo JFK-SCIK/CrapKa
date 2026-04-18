@@ -12,7 +12,7 @@
 
 ## DuckDNS
 - **Domaine** : crapka.duckdns.org
-- **Compte** : kleinfinger.jf@gmail.com
+- **Compte** : kleinfinger.jf@gmail.com (login via Google)
 - **Token** : 4fda7c6d-6ff4-4fe1-b54d-0f09c7c5066b
 - **IP pointée** : 35.184.245.186
 
