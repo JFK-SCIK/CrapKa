@@ -213,7 +213,8 @@ function showNetCreatePanel() {
       <input id="net-name" type="text" maxlength="20" placeholder="Votre prénom"
         style="padding:10px;border-radius:6px;border:1px solid var(--gold);background:var(--bg2);
                color:var(--text1);font-size:1rem;width:200px;text-align:center;"
-        value="" />
+        value=""
+        onkeydown="if(event.key==='Enter') netCreateRoom(document.getElementById('net-name').value||'Joueur 1')" />
       <button class="btn" style="padding:12px;width:200px;"
         onclick="netCreateRoom(document.getElementById('net-name').value||'Joueur 1')">
         ▶ Créer la partie
@@ -233,10 +234,12 @@ function showNetJoinPanel() {
       <input id="net-code" type="text" maxlength="10" placeholder="Code (ex: ROUGE-42)"
         style="padding:10px;border-radius:6px;border:1px solid var(--gold);background:var(--bg2);
                color:var(--text1);font-size:1.1rem;width:200px;text-align:center;letter-spacing:3px;"
-        oninput="this.value=this.value.toUpperCase()" />
+        oninput="this.value=this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter') document.getElementById('net-name2').focus()" />
       <input id="net-name2" type="text" maxlength="20" placeholder="Votre prénom"
         style="padding:10px;border-radius:6px;border:1px solid var(--bg3);background:var(--bg2);
-               color:var(--text1);font-size:1rem;width:200px;text-align:center;" />
+               color:var(--text1);font-size:1rem;width:200px;text-align:center;"
+        onkeydown="if(event.key==='Enter') netJoinRoom(document.getElementById('net-code').value, document.getElementById('net-name2').value||'Joueur 2')" />
       <button class="btn" style="padding:12px;width:200px;"
         onclick="netJoinRoom(document.getElementById('net-code').value, document.getElementById('net-name2').value||'Joueur 2')">
         ▶ Rejoindre

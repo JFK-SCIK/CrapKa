@@ -293,6 +293,7 @@ function render(){
   if(!G){renderMenu();return;}
   let topIdx,botIdx;
   if(UI.vsAI){topIdx=UI.aiIdx;botIdx=0;}
+  else if(UI.netMode){topIdx=1-UI.pidx;botIdx=UI.pidx;}
   else{topIdx=0;botIdx=1;}
   let html='';
   html+=renderPzone(topIdx);
@@ -374,7 +375,7 @@ function renderPzone(pidx){
 
   // Main (dans la colonne droite)
   h+=`<div class="hand">`;
-  if(isAI&&!_debugMode){
+  if((isAI&&!_debugMode)||(UI.netMode&&pidx!==UI.pidx)){
     for(const card of p.hand) h+=`<div class="card down" data-hand-uid="${card.uid}"></div>`;
   } else {
     for(const card of p.hand){

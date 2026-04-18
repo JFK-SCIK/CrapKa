@@ -447,6 +447,7 @@ function loadDebugSnap(){
 }
 
 function undo(){
+  if(UI.netMode){setStatus('↩ Indisponible en mode réseau');return;}
   _T('undo:entry','stack='+_undoStack.length);
   const s=_undoStack.length?_undoStack.pop():loadDebugSnap();
   if(!s){setStatus('Rien à annuler');return;}
