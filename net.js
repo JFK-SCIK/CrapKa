@@ -6,7 +6,7 @@ const _VER_NET = '0.1.0';
 // URL du serveur — remplacer par l'URL Fly.io après déploiement
 const _NET_WS   = location.hostname === 'localhost' || location.hostname.startsWith('192.')
                   ? `ws://${location.hostname}:8000`
-                  : 'wss://crapka-server.fly.dev';
+                  : 'wss://crapka.duckdns.org';
 const _NET_HTTP = _NET_WS.replace('wss://', 'https://').replace('ws://', 'http://');
 
 const NET = {
