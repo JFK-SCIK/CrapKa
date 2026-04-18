@@ -197,6 +197,9 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
         else:
             card = _pop_card_from_sources(G, pidx, move.get('card_uid'))
             if card is None: return False, 'card_not_found'
+            if card['num'] == 13:
+                G['pileKingPending'][ci] = True
+                G['pileKingVal'][ci]     = None
 
         G['commons'][ci].append(card)
         return True, ''
