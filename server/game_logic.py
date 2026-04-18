@@ -133,14 +133,37 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
         card = _pop_card_from_sources(G, pidx, uid)
         if card is None: return False, 'card_not_found'
 
-        if card['num'] == 13 and not G['commons'][ci]:
-            G['pileKingPending'][ci] = True
-            G['pileKingVal'][ci]     = None
-        elif G['pileKingPending'][ci] and card['num'] != 13:
+        if card['num'] == 13:
+            if not G['commons'][ci]:
+                # Roi seul sur pile vide → valeur à déterminer par la carte suivante
+                G['pileKingPending'][ci] = True
+                G['pileKingVal'][ci]     = None
+                G['commons'][ci].append(card)
+            else:
+                # Roi sur pile non-vide → valeur = carte dessous + 1
+                below = G['commons'][ci][-1]
+                if below['num'] == 13:
+                    below_val = G['pileKingVal'][ci] if G['pileKingVal'][ci] is not None else 13
+                else:
+                    below_val = below['num']
+                new_val = below_val + 1
+                G['pileKingPending'][ci] = False
+                G['commons'][ci].append(card)
+                if new_val >= 12:
+                    # Pile écartée (≥ Dame)
+                    G['futurePioche'].extend(G['commons'][ci])
+                    G['commons'][ci]         = []
+                    G['pileKingVal'][ci]     = None
+                    G['pileKingPending'][ci] = False
+                else:
+                    G['pileKingVal'][ci] = new_val
+        elif G['pileKingPending'][ci]:
+            # Carte non-Roi sur pile avec Roi pending → fixe la valeur du Roi
             G['pileKingVal'][ci]     = card['num'] - 1
             G['pileKingPending'][ci] = False
-
-        G['commons'][ci].append(card)
+            G['commons'][ci].append(card)
+        else:
+            G['commons'][ci].append(card)
 
         if not p['crapette'] and not p['hand']:
             G['phase']  = 'game-over'
