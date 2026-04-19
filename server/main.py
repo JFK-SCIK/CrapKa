@@ -1,5 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import rooms as R
 import game_logic as GL
 
@@ -11,6 +13,9 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+# Répertoire racine du repo (parent de server/)
+_STATIC_DIR = Path(__file__).parent.parent
 
 
 @app.get('/health')
@@ -97,3 +102,6 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
         await room.send_to(1 - pidx, {'type': 'opponent_disconnected'})
     except Exception:
         room.connections[pidx] = None
+
+# Fichiers statiques — monté en dernier pour ne pas masquer les routes API
+app.mount('/', StaticFiles(directory=_STATIC_DIR, html=True), name='static')
