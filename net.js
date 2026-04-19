@@ -105,10 +105,10 @@ function _netOnMessage(data) {
       showStartModal(data.state.cur, data.first_reason || '');
       break;
 
-    case 'state_update':
+    case 'state_update': {
       NET.pending = false;
       const mi = data.move_info;
-      const _applyAndRender = () => {
+      const applyAndRender = () => {
         _netApplyState(data.state);
         render();
         if (G.phase === 'game-over' && G.winner !== null) {
@@ -120,11 +120,12 @@ function _netOnMessage(data) {
         }
       };
       if (mi && mi.card && flyDur > 0) {
-        _netAnimateMove(mi, _applyAndRender);
+        _netAnimateMove(mi, applyAndRender);
       } else {
-        _applyAndRender();
+        applyAndRender();
       }
       break;
+    }
 
     case 'move_rejected':
       NET.pending = false;
