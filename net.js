@@ -119,7 +119,7 @@ function _netOnMessage(data) {
           setStatus('Tour de ' + G.players[G.cur].name + '…');
         }
       };
-      if (mi && mi.player_idx !== NET.pidx && mi.card && flyDur > 0) {
+      if (mi && mi.card && flyDur > 0) {
         _netAnimateMove(mi, _applyAndRender);
       } else {
         _applyAndRender();
@@ -270,7 +270,8 @@ function _netAnimateMove(info, cb) {
     else if (from_type === 'defausse') fromEl = document.querySelector(`[data-def-top="${player_idx}-${from_index}"]`)
                                              || document.querySelector(`[data-def-slot="${player_idx}-${from_index}"]`);
     else if (from_type === 'pioche')   fromEl = document.querySelector('[data-pioche]');
-    else                               fromEl = document.querySelector(`[data-pidx="${player_idx}"] .hand .card`);
+    else                               fromEl = document.querySelector(`[data-hand-uid="${card.uid}"]`)
+                                             || document.querySelector(`[data-pidx="${player_idx}"] .hand .card`);
 
   } else if (action === 'discard') {
     fromEl = document.querySelector(`[data-pidx="${player_idx}"] .hand .card`);
