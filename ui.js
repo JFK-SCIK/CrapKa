@@ -340,7 +340,8 @@ function renderPzone(pidx, isTop=false){
 
   // ── Défausses ──
   let dzoneHtml=`<div class="dzone">`;
-  for(let di=0;di<4;di++){
+  const diOrder=isTop?[3,2,1,0]:[0,1,2,3];
+  for(const di of diOrder){
     const pile=p.defausse[di];
     const vtgt=pidx===G.cur&&isHumanTurn()&&UI.sel&&canOnDefausse(UI.sel.card,pile);
     const n=pile.length;const OFF=15;
