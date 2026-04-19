@@ -389,9 +389,11 @@ function renderPzone(pidx, isTop=false){
 
   // ── Assemblage : miroir pour le joueur du haut ──
   if(isTop){
-    // Crapette à droite, main en haut du right-col
-    h+=`<div class="right-col">${handHtml}${dzoneHtml}</div>`;
-    h+=crHtml;
+    // Main en haut, puis [défausses + crapette] dans la même rangée en bas
+    h+=`<div class="right-col">
+      ${handHtml}
+      <div style="display:flex;gap:5px;align-items:flex-start">${dzoneHtml}${crHtml}</div>
+    </div>`;
   } else {
     h+=crHtml;
     h+=`<div class="right-col">${dzoneHtml}${handHtml}</div>`;
