@@ -296,9 +296,9 @@ function render(){
   else if(UI.netMode){topIdx=1-UI.pidx;botIdx=UI.pidx;}
   else{topIdx=0;botIdx=1;}
   let html='';
-  html+=renderPzone(topIdx);
+  html+=renderPzone(topIdx,true);
   html+=renderMiddle();
-  html+=renderPzone(botIdx);
+  html+=renderPzone(botIdx,false);
   const gameDiv=document.getElementById('game');
   gameDiv.innerHTML=html;
   // Ré-attacher le panneau de démarrage s'il existe (render() détruit innerHTML)
@@ -311,7 +311,7 @@ function render(){
   requestAnimationFrame(computeLayout);
 }
 
-function renderPzone(pidx){
+function renderPzone(pidx, isTop=false){
   const p=G.players[pidx];
   const isActive=G.cur===pidx&&G.phase!=='game-over';
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
@@ -325,71 +325,78 @@ function renderPzone(pidx){
 
   h+=`<div class="prow">`;
 
-  // ── Colonne gauche : crapette seule ──
+  // ── Crapette ──
   const crTop=peek(p.crapette);
   const crSel=UI.sel&&crTop&&UI.sel.card.uid===crTop.uid&&UI.sel.src.type==='crapette'?'sel':'';
-  h+=`<div class="cr-col" onclick="clickCrapette(${pidx})">`;
-  h+=`<div class="crstack">`;
-  if(p.crapette.length>1) h+=`<div class="card down back"></div>`;
-  if(crTop){
-    h+=`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
-      <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
-    </div>`;
-  } else {
-    h+=`<div class="slot front"><span class="slbl">Vide</span></div>`;
-  }
-  h+=`</div></div>`;
+  const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">
+    <div class="crstack">
+      ${p.crapette.length>1?`<div class="card down back"></div>`:''}
+      ${crTop
+        ?`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
+            <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
+          </div>`
+        :`<div class="slot front"><span class="slbl">Vide</span></div>`}
+    </div></div>`;
 
-  // Colonne droite : défausses (alignées avec les piles communes) + main en dessous
-  h+=`<div class="right-col">`;
-  h+=`<div class="dzone">`;
+  // ── Défausses ──
+  let dzoneHtml=`<div class="dzone">`;
   for(let di=0;di<4;di++){
     const pile=p.defausse[di];
     const vtgt=pidx===G.cur&&isHumanTurn()&&UI.sel&&canOnDefausse(UI.sel.card,pile);
     const n=pile.length;const OFF=15;
     const isDemandable=pidx!==G.cur&&isHumanTurn()&&wasPlayableAtStartOfTurn(pidx,di);
     const totalH=n>0?`calc(var(--ch) + ${Math.max(0,n-1)*OFF}px)`:`var(--ch)`;
-    h+=`<div class="dpile${vtgt?' vtgt':''}" style="height:${totalH}"
+    dzoneHtml+=`<div class="dpile${vtgt?' vtgt':''}" style="height:${totalH}"
         data-def-slot="${pidx}-${di}"
         onclick="clickDefausse(${pidx},${di})">`;
     if(n===0){
-      h+=`<div class="slot" style="position:absolute;inset:0;width:var(--cw);height:var(--ch);">
+      dzoneHtml+=`<div class="slot" style="position:absolute;inset:0;width:var(--cw);height:var(--ch);">
         <span class="slbl">D${di+1}</span></div>`;
     } else {
       for(let k=0;k<n;k++){
-        const card=pile[k];const isTop=k===n-1;
-        const isSel=isTop&&UI.sel&&UI.sel.card.uid===card.uid&&UI.sel.src.type==='defausse'&&UI.sel.src.index===di;
-        const dem=isTop&&isDemandable?'demandable':'';
-        h+=`<div class="card ${card.color} ${isSel?'sel':''} ${dem} dcard"
+        const card=pile[k];const isTop2=k===n-1;
+        const isSel=isTop2&&UI.sel&&UI.sel.card.uid===card.uid&&UI.sel.src.type==='defausse'&&UI.sel.src.index===di;
+        const dem=isTop2&&isDemandable?'demandable':'';
+        dzoneHtml+=`<div class="card ${card.color} ${isSel?'sel':''} ${dem} dcard"
           style="position:absolute;top:${k*OFF}px;z-index:${k+1};left:0;width:var(--cw);
-            ${!isTop?`height:${OFF}px;overflow:hidden;border-bottom:none;border-radius:5px 5px 0 0;`:''}"
-          ${isTop?`data-def-top="${pidx}-${di}"`:''}>
-          <div class="ct">${card.value}${!isTop?card.suit:''}</div>
-          ${isTop?`<div class="cs">${card.suit}</div><div class="cb">${card.value}</div>`:''}
+            ${!isTop2?`height:${OFF}px;overflow:hidden;border-bottom:none;border-radius:5px 5px 0 0;`:''}"
+          ${isTop2?`data-def-top="${pidx}-${di}"`:''}>
+          <div class="ct">${card.value}${!isTop2?card.suit:''}</div>
+          ${isTop2?`<div class="cs">${card.suit}</div><div class="cb">${card.value}</div>`:''}
         </div>`;
       }
     }
-    h+=`</div>`;
+    dzoneHtml+=`</div>`;
   }
-  h+=`</div>`; // dzone
+  dzoneHtml+=`</div>`; // dzone
 
-  // Main (dans la colonne droite)
-  h+=`<div class="hand">`;
+  // ── Main ──
+  let handHtml=`<div class="hand">`;
   if((isAI&&!_debugMode)||(UI.netMode&&pidx!==UI.pidx)){
-    for(const card of p.hand) h+=`<div class="card down" data-hand-uid="${card.uid}"></div>`;
+    for(const card of p.hand) handHtml+=`<div class="card down" data-hand-uid="${card.uid}"></div>`;
   } else {
     for(const card of p.hand){
       const isSel=UI.sel&&UI.sel.card.uid===card.uid&&UI.sel.src.type==='hand';
-      h+=`<div class="card ${card.color} ${isSel?'sel':''}"
+      handHtml+=`<div class="card ${card.color} ${isSel?'sel':''}"
         onclick="clickHand(${card.uid})" data-hand-uid="${card.uid}">
         <div class="ct">${card.value}</div><div class="cs">${card.suit}</div><div class="cb">${card.value}</div>
       </div>`;
     }
-    if(!p.hand.length) h+=`<span style="color:var(--gold);font-size:0.7rem;align-self:center;cursor:pointer;text-decoration:underline dotted;" onclick="clickEmptyHand()">Main vide — piocher</span>`;
+    if(!p.hand.length) handHtml+=`<span style="color:var(--gold);font-size:0.7rem;align-self:center;cursor:pointer;text-decoration:underline dotted;" onclick="clickEmptyHand()">Main vide — piocher</span>`;
   }
-  h+=`</div>`; // hand
+  handHtml+=`</div>`; // hand
 
-  h+=`</div></div></div>`; // right-col + prow + pzone
+  // ── Assemblage : miroir pour le joueur du haut ──
+  if(isTop){
+    // Crapette à droite, main en haut du right-col
+    h+=`<div class="right-col">${handHtml}${dzoneHtml}</div>`;
+    h+=crHtml;
+  } else {
+    h+=crHtml;
+    h+=`<div class="right-col">${dzoneHtml}${handHtml}</div>`;
+  }
+
+  h+=`</div></div>`; // prow + pzone
   return h;
 }
 
