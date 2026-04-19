@@ -17,6 +17,7 @@ class Room:
         self.G: Optional[dict] = None
         self.connections: list[Optional[WebSocket]] = [None, None]
         self.player_names    = ['Joueur 1', 'Joueur 2']
+        self.names_ready     = [False, False]
         self.last_activity   = time.time()
 
     def touch(self):

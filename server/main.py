@@ -50,15 +50,7 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
 
     await ws.send_json({'type': 'connected', 'pidx': pidx, 'room_code': room.code})
 
-    if room.is_full() and room.G is None:
-        room.G = GL.new_game(room.player_names[0], room.player_names[1])
-        for i in range(2):
-            await room.send_to(i, {
-                'type':         'game_start',
-                'state':        GL.filter_state(room.G, i),
-                'first_reason': room.G.get('_firstReason', ''),
-            })
-    elif pidx == 1:
+    if pidx == 1:
         await room.send_to(0, {'type': 'opponent_connected'})
 
     try:
@@ -70,8 +62,17 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
             if msg_type == 'set_name':
                 name = str(data.get('name', f'Joueur {pidx+1}'))[:30]
                 room.player_names[pidx] = name
+                room.names_ready[pidx] = True
                 if room.G:
                     room.G['players'][pidx]['name'] = name
+                elif room.is_full() and all(room.names_ready):
+                    room.G = GL.new_game(room.player_names[0], room.player_names[1])
+                    for i in range(2):
+                        await room.send_to(i, {
+                            'type':         'game_start',
+                            'state':        GL.filter_state(room.G, i),
+                            'first_reason': room.G.get('_firstReason', ''),
+                        })
                 continue
 
             if msg_type == 'ping':
