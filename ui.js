@@ -323,7 +323,7 @@ function renderPzone(pidx, isTop=false){
     <span style="font-size:0.6rem">Pioche:${G.pioche.length}+${G.futurePioche.length}</span>
   </div>`;
 
-  h+=`<div class="prow">`;
+  h+=`<div class="prow${isTop?' prow-top':''}">`;
 
   // ── Crapette ──
   const crTop=peek(p.crapette);

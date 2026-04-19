@@ -124,6 +124,7 @@ body{
 .plabel .nm{color:var(--gold);font-weight:bold;}
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
+.prow-top{align-items:flex-end;}
 .cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);}
 .right-col{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .hand{display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;min-height:calc(var(--ch) + 2px);}
