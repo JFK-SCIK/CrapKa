@@ -107,14 +107,22 @@ function _netOnMessage(data) {
 
     case 'state_update':
       NET.pending = false;
-      _netApplyState(data.state);
-      render();
-      if (G.phase === 'game-over' && G.winner !== null) {
-        setTimeout(() => showVictory(G.winner), 300);
-      } else if (G.cur === NET.pidx) {
-        setStatus('Votre tour');
+      const mi = data.move_info;
+      const _applyAndRender = () => {
+        _netApplyState(data.state);
+        render();
+        if (G.phase === 'game-over' && G.winner !== null) {
+          setTimeout(() => showVictory(G.winner), 300);
+        } else if (G.cur === NET.pidx) {
+          setStatus('Votre tour');
+        } else {
+          setStatus('Tour de ' + G.players[G.cur].name + '…');
+        }
+      };
+      if (mi && mi.player_idx !== NET.pidx && mi.card && flyDur > 0) {
+        _netAnimateMove(mi, _applyAndRender);
       } else {
-        setStatus('Tour de ' + G.players[G.cur].name + '…');
+        _applyAndRender();
       }
       break;
 
@@ -248,4 +256,35 @@ function showNetJoinPanel() {
         onclick="showMenu()">← Retour</button>
     </div>`;
   setTimeout(()=>document.getElementById('net-code').focus(), 50);
+}
+
+// ── Animation du coup adverse ─────────────────────────────────────────────────
+
+function _netAnimateMove(info, cb) {
+  const {action, card, to_index, from_type, from_index, player_idx} = info;
+  let fromEl = null, toEl = null;
+
+  if (action === 'play' || action === 'init_pile') {
+    toEl = document.querySelector(`[data-common="${to_index}"]`);
+    if      (from_type === 'crapette') fromEl = document.querySelector(`[data-crapette="${player_idx}"]`);
+    else if (from_type === 'defausse') fromEl = document.querySelector(`[data-def-top="${player_idx}-${from_index}"]`)
+                                             || document.querySelector(`[data-def-slot="${player_idx}-${from_index}"]`);
+    else if (from_type === 'pioche')   fromEl = document.querySelector('[data-pioche]');
+    else                               fromEl = document.querySelector(`[data-pidx="${player_idx}"] .hand .card`);
+
+  } else if (action === 'discard') {
+    fromEl = document.querySelector(`[data-pidx="${player_idx}"] .hand .card`);
+    toEl   = document.querySelector(`[data-def-slot="${player_idx}-${to_index}"]`);
+
+  } else if (action === 'demand') {
+    const defOwner = 1 - player_idx;
+    fromEl = document.querySelector(`[data-def-top="${defOwner}-${from_index}"]`);
+    toEl   = document.querySelector(`[data-common="${to_index}"]`);
+  }
+
+  if (fromEl && toEl) {
+    flyCard(card, fromEl.getBoundingClientRect(), toEl.getBoundingClientRect(), cb);
+  } else {
+    cb();
+  }
 }

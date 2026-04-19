@@ -316,7 +316,7 @@ function renderPzone(pidx){
   const isActive=G.cur===pidx&&G.phase!=='game-over';
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
 
-  let h=`<div class="pzone ${isActive?'active':'inactive'}">`;
+  let h=`<div class="pzone ${isActive?'active':'inactive'}" data-pidx="${pidx}">`;
   h+=`<div class="plabel">
     <span class="nm">${p.name}${isActive?' ▶':''}</span>
     <span class="cr">Crapette:${p.crapette.length}</span>
@@ -400,7 +400,7 @@ function renderMiddle(){
   h+=`<div class="pioche-col">
     <div class="zone-lbl">Pioche</div>`;
   if(G.pioche.length){
-    h+=`<div class="card down" onclick="clickPioche()" style="cursor:pointer;" title="Piocher"></div>`;
+    h+=`<div class="card down" onclick="clickPioche()" style="cursor:pointer;" title="Piocher" data-pioche></div>`;
   } else {
     h+=`<div class="slot" onclick="clickPioche()" style="cursor:pointer;"><span class="slbl">Vide</span></div>`;
   }

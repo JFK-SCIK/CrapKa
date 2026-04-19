@@ -29,6 +29,42 @@ async def create_room():
     return {'room_code': room.code}
 
 
+def _build_move_info(G: dict, pidx: int, data: dict) -> dict:
+    action = data.get('action', '')
+    info = {'action': action, 'player_idx': pidx}
+    ci = data.get('target_index')
+    di = data.get('defausse_index')
+
+    if action == 'play' and ci is not None:
+        pile = G['commons'][ci]
+        if pile: info['card'] = pile[-1]
+        info['to_index']   = ci
+        info['from_type']  = data.get('src_type', 'hand')
+        info['from_index'] = data.get('src_index')
+
+    elif action == 'init_pile' and ci is not None:
+        pile = G['commons'][ci]
+        if pile: info['card'] = pile[-1]
+        info['to_index']   = ci
+        info['from_type']  = 'pioche' if data.get('from_pioche') else data.get('src_type', 'hand')
+        info['from_index'] = data.get('src_index')
+
+    elif action == 'discard' and di is not None:
+        col = G['players'][pidx]['defausse'][di]
+        if col: info['card'] = col[-1]
+        info['to_index']  = di
+        info['from_type'] = 'hand'
+
+    elif action == 'demand' and ci is not None:
+        pile = G['commons'][ci]
+        if pile: info['card'] = pile[-1]
+        info['to_index']   = ci
+        info['from_index'] = data.get('src_index')
+        info['from_type']  = 'defausse'
+
+    return info
+
+
 @app.websocket('/ws/{room_code}')
 async def ws_endpoint(ws: WebSocket, room_code: str):
     await ws.accept()
@@ -90,12 +126,14 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                     await ws.send_json({'type': 'move_rejected', 'seq': data.get('seq'), 'reason': err})
                     continue
 
+                move_info = _build_move_info(room.G, pidx, data)
+
                 for i in range(2):
                     await room.send_to(i, {
-                        'type':   'state_update',
-                        'seq':    data.get('seq'),
-                        'action': data.get('action'),
-                        'state':  GL.filter_state(room.G, i),
+                        'type':      'state_update',
+                        'seq':       data.get('seq'),
+                        'move_info': move_info,
+                        'state':     GL.filter_state(room.G, i),
                     })
 
     except WebSocketDisconnect:
