@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.16';
+const _VER_UI='1.2.17';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -330,11 +330,11 @@ function renderPzone(pidx, isTop=false){
             <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
           </div>`
         :`<div class="slot front"><span class="slbl">Vide</span></div>`}
-    </div>
-    <div class="cr-label">
-      <div class="cr-label-title">Crapette</div>
-      <div class="cr-label-count">${p.crapette.length}</div>
-      <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
+      <div class="cr-label">
+        <div class="cr-label-title">Crapette</div>
+        <div class="cr-label-count">${p.crapette.length}</div>
+        <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
+      </div>
     </div>
   </div>`;
 
