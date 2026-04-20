@@ -332,7 +332,8 @@ function renderPzone(pidx, isTop=false){
         :`<div class="slot front"><span class="slbl">Vide</span></div>`}
     </div>
     <div class="cr-label">
-      <div class="cr-label-count">Crapette ${p.crapette.length}</div>
+      <div class="cr-label-title">Crapette</div>
+      <div class="cr-label-count">${p.crapette.length}</div>
       <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
     </div>
   </div>`;
