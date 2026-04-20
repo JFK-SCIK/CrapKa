@@ -317,26 +317,24 @@ function renderPzone(pidx, isTop=false){
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
 
   let h=`<div class="pzone ${isActive?'active':'inactive'}" data-pidx="${pidx}">`;
-  h+=`<div class="prow${isTop?' prow-top':''}">`;
+  h+=`<div class="prow">`;
 
-  // ── Crapette ──
+  // ── Crapette : carte + cartouche dessous (identique pour les deux joueurs) ──
   const crTop=peek(p.crapette);
   const crSel=UI.sel&&crTop&&UI.sel.card.uid===crTop.uid&&UI.sel.src.type==='crapette'?'sel':'';
-  const crCartouche=`<div class="cr-label">
-    <div class="cr-label-count">Crapette ${p.crapette.length}</div>
-    <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
-  </div>`;
-  const crStack=`<div class="crstack">
-    ${p.crapette.length>1?`<div class="card down back"></div>`:''}
-    ${crTop
-      ?`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
-          <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
-        </div>`
-      :`<div class="slot front"><span class="slbl">Vide</span></div>`}
-  </div>`;
-  // isTop : cartouche au-dessus de la carte ; isBottom : cartouche en dessous
   const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">
-    ${isTop ? crCartouche + crStack : crStack + crCartouche}
+    <div class="crstack">
+      ${p.crapette.length>1?`<div class="card down back"></div>`:''}
+      ${crTop
+        ?`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
+            <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
+          </div>`
+        :`<div class="slot front"><span class="slbl">Vide</span></div>`}
+    </div>
+    <div class="cr-label">
+      <div class="cr-label-count">Crapette ${p.crapette.length}</div>
+      <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
+    </div>
   </div>`;
 
   // ── Défausses ──
@@ -388,13 +386,11 @@ function renderPzone(pidx, isTop=false){
   }
   handHtml+=`</div>`; // hand
 
-  // ── Assemblage : miroir pour le joueur du haut ──
+  // ── Assemblage ──
   if(isTop){
-    // right-col (hand+dzone) à gauche, cr-col à droite aligné en bas (prow-top)
     h+=`<div class="right-col">${handHtml}${dzoneHtml}</div>`;
     h+=crHtml;
   } else {
-    // cr-col à gauche, right-col (dzone+hand) à droite
     h+=crHtml;
     h+=`<div class="right-col">${dzoneHtml}${handHtml}</div>`;
   }
