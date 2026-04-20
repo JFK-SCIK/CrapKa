@@ -317,26 +317,28 @@ function renderPzone(pidx, isTop=false){
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
 
   let h=`<div class="pzone ${isActive?'active':'inactive'}" data-pidx="${pidx}">`;
-  h+=`<div class="plabel">
-    <span class="nm">${p.name}${isActive?' ▶':''}</span>
-    <span class="cr">Crapette:${p.crapette.length}</span>
-    <span style="font-size:0.6rem">Pioche:${G.pioche.length}+${G.futurePioche.length}</span>
-  </div>`;
+  h+=`<div class="plabel"><span class="nm">${isActive?'▶ ':''}</span></div>`;
 
   h+=`<div class="prow${isTop?' prow-top':''}">`;
 
   // ── Crapette ──
   const crTop=peek(p.crapette);
   const crSel=UI.sel&&crTop&&UI.sel.card.uid===crTop.uid&&UI.sel.src.type==='crapette'?'sel':'';
+  const crCartouche=`<div class="cr-label">
+    <div class="cr-label-count">Crapette ${p.crapette.length}</div>
+    <div class="cr-label-name">${p.name}${isActive?' ▶':''}</div>
+  </div>`;
+  const crStack=`<div class="crstack">
+    ${p.crapette.length>1?`<div class="card down back"></div>`:''}
+    ${crTop
+      ?`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
+          <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
+        </div>`
+      :`<div class="slot front"><span class="slbl">Vide</span></div>`}
+  </div>`;
   const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">
-    <div class="crstack">
-      ${p.crapette.length>1?`<div class="card down back"></div>`:''}
-      ${crTop
-        ?`<div class="card ${crTop.color} ${crSel} front" data-crapette="${pidx}">
-            <div class="ct">${crTop.value}</div><div class="cs">${crTop.suit}</div><div class="cb">${crTop.value}</div>
-          </div>`
-        :`<div class="slot front"><span class="slbl">Vide</span></div>`}
-    </div></div>`;
+    ${isTop ? crCartouche + crStack : crStack + crCartouche}
+  </div>`;
 
   // ── Défausses ──
   let dzoneHtml=`<div class="dzone">`;
