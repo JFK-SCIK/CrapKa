@@ -124,13 +124,19 @@ body{
 .plabel .nm{color:var(--gold);font-weight:bold;}
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
-.cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);}
+.cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);display:flex;flex-direction:column;align-items:center;}
+/* Cartouche bas (joueur local) — overlay absolu en bas de la carte */
 .cr-label{position:absolute;bottom:0;left:0;right:0;z-index:10;
   background:rgba(233,69,96,0.88);color:#fff;
   border-radius:0 0 5px 5px;padding:2px 2px 3px;text-align:center;}
 .cr-label-title{font-size:calc(var(--cf)*0.6);opacity:0.85;line-height:1.1;}
 .cr-label-count{font-size:calc(var(--cf)*1.0);font-weight:bold;line-height:1.1;}
 .cr-label-name{font-size:calc(var(--cf)*0.75);color:var(--gold);font-weight:bold;word-break:break-all;line-height:1.1;}
+/* Badge adversaire (haut) — au-dessus de la carte */
+.cr-top-badge{width:100%;background:var(--accent);border-radius:5px 5px 0 0;
+  padding:3px 2px 2px;text-align:center;margin-bottom:1px;}
+.cr-top-name{font-size:calc(var(--cf)*0.9);color:var(--gold);font-weight:bold;word-break:break-all;line-height:1.1;}
+.cr-top-count{font-size:calc(var(--cf)*0.75);color:#fff;opacity:0.9;line-height:1.1;}
 .right-col{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .hand{display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;min-height:calc(var(--ch) + 2px);}
 .dzone{display:flex;gap:4px;}
