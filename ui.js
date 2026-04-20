@@ -317,8 +317,6 @@ function renderPzone(pidx, isTop=false){
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
 
   let h=`<div class="pzone ${isActive?'active':'inactive'}" data-pidx="${pidx}">`;
-  h+=`<div class="plabel"><span class="nm">${isActive?'▶ ':''}</span></div>`;
-
   h+=`<div class="prow${isTop?' prow-top':''}">`;
 
   // ── Crapette ──
@@ -336,6 +334,7 @@ function renderPzone(pidx, isTop=false){
         </div>`
       :`<div class="slot front"><span class="slbl">Vide</span></div>`}
   </div>`;
+  // isTop : cartouche au-dessus de la carte ; isBottom : cartouche en dessous
   const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">
     ${isTop ? crCartouche + crStack : crStack + crCartouche}
   </div>`;
@@ -391,12 +390,11 @@ function renderPzone(pidx, isTop=false){
 
   // ── Assemblage : miroir pour le joueur du haut ──
   if(isTop){
-    // Main en haut, puis [défausses + crapette] dans la même rangée en bas
-    h+=`<div class="right-col">
-      ${handHtml}
-      <div style="display:flex;gap:5px;align-items:flex-start">${dzoneHtml}${crHtml}</div>
-    </div>`;
+    // right-col (hand+dzone) à gauche, cr-col à droite aligné en bas (prow-top)
+    h+=`<div class="right-col">${handHtml}${dzoneHtml}</div>`;
+    h+=crHtml;
   } else {
+    // cr-col à gauche, right-col (dzone+hand) à droite
     h+=crHtml;
     h+=`<div class="right-col">${dzoneHtml}${handHtml}</div>`;
   }
