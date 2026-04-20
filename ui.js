@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.15';
+const _VER_UI='1.2.16';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
