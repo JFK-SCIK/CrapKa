@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.21';
+const _VER_UI='1.2.22';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -336,9 +336,9 @@ function renderPzone(pidx, isTop=false){
     </div>`;
   const crBadge=`<div class="cr-slot">
       <div class="cr-badge">
-        <div class="cr-badge-name">${p.name}${isActive?' ▶':''}</div>
         <div class="cr-badge-count">Crapette&nbsp;${p.crapette.length}</div>
       </div>
+      <div class="cr-name">${p.name}${isActive?' ▶':''}</div>
     </div>`;
   const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">${isTop?crBadge:''}${crStack}${!isTop?crBadge:''}</div>`;
 

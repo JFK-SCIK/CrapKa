@@ -124,12 +124,13 @@ body{
 .plabel .nm{color:var(--gold);font-weight:bold;}
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
-.cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);display:flex;flex-direction:column;gap:2px;}
-/* Slot de hauteur fixe --ch pour aligner badge avec la rangée main de right-col */
-.cr-slot{width:100%;height:var(--ch);display:flex;align-items:center;justify-content:center;}
+.cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);display:flex;flex-direction:column;gap:2px;
+  border-radius:7px;box-shadow:0 0 0 1.5px rgba(255,255,255,0.22);}
+/* Slot de hauteur --ch : badge + nom empilés, centrés verticalement */
+.cr-slot{width:100%;height:var(--ch);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
 .cr-badge{width:100%;background:var(--accent);border-radius:5px;padding:3px 2px;text-align:center;}
-.cr-badge-name{font-size:calc(var(--cf)*0.9);color:var(--gold);font-weight:bold;word-break:break-all;line-height:1.1;}
-.cr-badge-count{font-size:calc(var(--cf)*0.75);color:#fff;opacity:0.9;line-height:1.1;}
+.cr-badge-count{font-size:calc(var(--cf)*0.9);color:#fff;font-weight:bold;line-height:1.1;}
+.cr-name{font-size:calc(var(--cf)*0.9);color:var(--gold);font-weight:bold;word-break:break-all;text-align:center;line-height:1.1;}
 .right-col{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .hand{display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;min-height:calc(var(--ch) + 2px);}
 .dzone{display:flex;gap:4px;}
