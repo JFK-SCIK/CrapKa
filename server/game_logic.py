@@ -93,6 +93,22 @@ def _ensure_pioche(G: dict):
         G['pioche'] = _shuffle(G['futurePioche'])
         G['futurePioche'] = []
 
+def _draw_to_five(G: dict, p: dict):
+    """Complète la main jusqu'à 5 cartes, avec reshuffle si nécessaire (miroir de drawToFive JS)."""
+    drawn = []
+    needed = 5 - len(p['hand'])
+    while len(drawn) < needed:
+        if not G['pioche']:
+            if not G['futurePioche']:
+                break
+            _ensure_pioche(G)
+        if G['pioche']:
+            drawn.append(G['pioche'].pop())
+        else:
+            break
+    if drawn:
+        p['hand'] = _sort_hand(p['hand'] + drawn)
+
 def _pop_card_from_sources(G: dict, pidx: int, uid: int) -> Optional[dict]:
     p = G['players'][pidx]
     for i, c in enumerate(p['hand']):
@@ -116,12 +132,7 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
 
     # ── draw ─────────────────────────────────────────────────────────────────
     if action == 'draw':
-        _ensure_pioche(G)
-        needed = 5 - len(p['hand'])
-        if needed > 0 and G['pioche']:
-            drawn = G['pioche'][-needed:]
-            G['pioche'] = G['pioche'][:-needed]
-            p['hand'] = _sort_hand(p['hand'] + drawn)
+        _draw_to_five(G, p)
         return True, ''
 
     # ── play ─────────────────────────────────────────────────────────────────
@@ -195,12 +206,7 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
 
         # Auto-distribue au nouveau joueur actif (miroir de nextPlayer→drawToFive)
         opp_p = G['players'][opp]
-        _ensure_pioche(G)
-        needed = 5 - len(opp_p['hand'])
-        if needed > 0 and G['pioche']:
-            drawn = G['pioche'][-needed:]
-            G['pioche'] = G['pioche'][:-needed]
-            opp_p['hand'] = sorted(opp_p['hand'] + drawn, key=lambda c: c['num'])
+        _draw_to_five(G, opp_p)
 
         return True, ''
 

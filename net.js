@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.0';
+const _VER_NET = '0.1.1';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -110,6 +110,7 @@ function _netOnMessage(data) {
     case 'state_update': {
       NET.pending = false;
       const mi = data.move_info;
+      if (mi) _netLogMove(mi);
       const applyAndRender = () => {
         _netApplyState(data.state);
         render();
@@ -291,5 +292,24 @@ function _netAnimateMove(info, cb) {
     flyCard(card, fromEl.getBoundingClientRect(), toEl.getBoundingClientRect(), cb);
   } else {
     cb();
+  }
+}
+
+// ── Log des coups en mode réseau ─────────────────────────────────────────────
+
+function _netLogMove(mi) {
+  const {action, card, to_index, from_type, from_index, player_idx} = mi;
+  const cls = player_idx === NET.pidx ? 'p0' : 'p1';
+  const c = card ? card.value + card.suit : '?';
+  const fromLbl = from_type === 'crapette' ? 'Cr'
+                : from_type === 'defausse'  ? 'D' + (from_index + 1)
+                : from_type === 'pioche'    ? '↑'
+                : 'M';
+  if (action === 'play' || action === 'init_pile') {
+    addMoveLog(c + ' (' + fromLbl + ')→P' + (to_index + 1), cls);
+  } else if (action === 'discard') {
+    addMoveLog(c + ' (M)→D' + (to_index + 1), cls);
+  } else if (action === 'demand') {
+    addMoveLog('⚡' + c + '→P' + (to_index + 1), cls);
   }
 }
