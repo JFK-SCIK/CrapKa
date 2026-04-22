@@ -18,6 +18,17 @@
 
 ---
 
+## Terminologie UI (mode réseau)
+
+- **Joueur** : le joueur local, affiché en bas de l'écran, qui interagit avec l'interface.
+- **Adversaire** : l'autre joueur, affiché en haut de l'écran, à distance.
+
+### Layout mode réseau
+- Adversaire (haut) : `right-col` = [main, défausse] / `cr-col` = [badge, crstack] — badge face à la main, crstack face à la défausse.
+- Joueur (bas) : `right-col` = [défausse, main] / `cr-col` = [crstack, badge] — crstack face à la défausse, badge face à la main.
+
+---
+
 ## Règles du jeu
 
 ### Structure

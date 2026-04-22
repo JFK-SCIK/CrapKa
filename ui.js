@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.19';
+const _VER_UI='1.2.20';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -320,6 +320,10 @@ function renderPzone(pidx, isTop=false){
   h+=`<div class="prow">`;
 
   // ── Crapette ──
+  // Chaque joueur a deux "slots" de hauteur --ch dans cr-col, alignés avec les
+  // deux rangées de right-col (main / défausse).
+  // Adversaire (haut) : [slot-badge, crstack] → badge face à la main, crstack face à la défausse
+  // Joueur    (bas)   : [crstack, slot-badge] → crstack face à la défausse, badge face à la main
   const crTop=peek(p.crapette);
   const crSel=UI.sel&&crTop&&UI.sel.card.uid===crTop.uid&&UI.sel.src.type==='crapette'?'sel':'';
   const crStack=`<div class="crstack">
@@ -330,10 +334,11 @@ function renderPzone(pidx, isTop=false){
           </div>`
         :`<div class="slot front"><span class="slbl">Vide</span></div>`}
     </div>`;
-  // Badge : adversaire (haut) → au-dessus ; joueur local (bas) → en dessous
-  const crBadge=`<div class="cr-badge">
-      <div class="cr-badge-name">${p.name}${isActive?' ▶':''}</div>
-      <div class="cr-badge-count">Crapette&nbsp;${p.crapette.length}</div>
+  const crBadge=`<div class="cr-slot">
+      <div class="cr-badge">
+        <div class="cr-badge-name">${p.name}${isActive?' ▶':''}</div>
+        <div class="cr-badge-count">Crapette&nbsp;${p.crapette.length}</div>
+      </div>
     </div>`;
   const crHtml=`<div class="cr-col" onclick="clickCrapette(${pidx})">${isTop?crBadge:''}${crStack}${!isTop?crBadge:''}</div>`;
 
