@@ -176,7 +176,7 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
         else:
             G['commons'][ci].append(card)
 
-        if not p['crapette'] and not p['hand']:
+        if not p['crapette']:
             G['phase']  = 'game-over'
             G['winner'] = pidx
         return True, ''
@@ -231,6 +231,9 @@ def apply_move(G: dict, pidx: int, move: dict) -> tuple[bool, str]:
                 G['pileKingVal'][ci]     = None
 
         G['commons'][ci].append(card)
+        if not p['crapette']:
+            G['phase']  = 'game-over'
+            G['winner'] = pidx
         return True, ''
 
     # ── clear_pile ────────────────────────────────────────────────────────────
