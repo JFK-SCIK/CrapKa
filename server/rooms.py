@@ -19,6 +19,7 @@ class Room:
         self.player_names    = ['Joueur 1', 'Joueur 2']
         self.names_ready     = [False, False]
         self.last_activity   = time.time()
+        self.stats_recorded  = False
 
     def touch(self):
         self.last_activity = time.time()

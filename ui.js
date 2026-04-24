@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.23';
+const _VER_UI='1.2.24';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -493,6 +493,9 @@ function renderMenu(){
         </button>
         <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="showNetJoinPanel()">
           🔗 Rejoindre une partie
+        </button>
+        <button class="btn" style="padding:11px;font-size:0.85rem;background:var(--bg3);" onclick="showStats()">
+          📊 Statistiques
         </button>
       </div>
       <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>
@@ -1060,6 +1063,68 @@ window.addEventListener('orientationchange',()=>{setTimeout(computeLayout,50);})
 // ══════════════════════════════════════════════
 // ANIMATION VICTOIRE (D8)
 // ══════════════════════════════════════════════
+async function showStats(){
+  const title=document.getElementById('mtitle');
+  const body=document.getElementById('mbody');
+  const btns=document.getElementById('mbtns');
+  title.textContent='📊 Statistiques';
+  body.innerHTML='<p style="color:var(--text2);text-align:center">Chargement…</p>';
+  btns.innerHTML='';
+  const btn=document.createElement('button');btn.className='btn';btn.textContent='Fermer';btn.onclick=closeModal;btns.appendChild(btn);
+  document.getElementById('movl').classList.add('on');
+
+  let data;
+  try {
+    const resp=await fetch(_NET_HTTP+'/stats');
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    data=await resp.json();
+  } catch(e) {
+    body.innerHTML='<p style="color:var(--text2);text-align:center">Erreur : '+e.message+'</p>';
+    return;
+  }
+
+  const players=Object.entries(data).sort((a,b)=>b[1].games-a[1].games);
+  if(!players.length){
+    body.innerHTML='<p style="color:var(--text2);text-align:center">Aucune partie enregistrée.</p>';
+    return;
+  }
+
+  const pct=(w,g)=>g>0?Math.round(w/g*100)+'%':'—';
+  let html='<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">';
+  html+='<thead><tr style="color:var(--text2);border-bottom:1px solid var(--bg3);">'
+       +'<th style="text-align:left;padding:4px 6px;">Joueur</th>'
+       +'<th style="padding:4px 4px;">P</th>'
+       +'<th style="padding:4px 4px;color:var(--gold);">V</th>'
+       +'<th style="padding:4px 4px;">D</th>'
+       +'<th style="padding:4px 4px;">%</th>'
+       +'</tr></thead><tbody>';
+
+  for(const [name,st] of players){
+    html+=`<tr style="border-bottom:1px solid var(--bg3);">
+      <td style="padding:5px 6px;font-weight:bold;color:var(--gold)">${_esc(name)}</td>
+      <td style="text-align:center;padding:5px 4px;">${st.games}</td>
+      <td style="text-align:center;padding:5px 4px;color:var(--gold)">${st.wins}</td>
+      <td style="text-align:center;padding:5px 4px;">${st.losses}</td>
+      <td style="text-align:center;padding:5px 4px;">${pct(st.wins,st.games)}</td>
+    </tr>`;
+    for(const [opp,vs] of Object.entries(st.vs).sort((a,b)=>b[1].games-a[1].games)){
+      html+=`<tr style="background:var(--bg2);">
+        <td style="padding:3px 6px 3px 18px;color:var(--text2);font-style:italic;">↳ vs ${_esc(opp)}</td>
+        <td style="text-align:center;padding:3px 4px;color:var(--text2);">${vs.games}</td>
+        <td style="text-align:center;padding:3px 4px;color:var(--text2);">${vs.wins}</td>
+        <td style="text-align:center;padding:3px 4px;color:var(--text2);">${vs.losses}</td>
+        <td style="text-align:center;padding:3px 4px;color:var(--text2);">${pct(vs.wins,vs.games)}</td>
+      </tr>`;
+    }
+  }
+  html+='</tbody></table>';
+  body.innerHTML=html;
+}
+
+function _esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function showVictory(winnerIdx){
   if(!G) return;
   const existing=document.getElementById('victory-overlay');

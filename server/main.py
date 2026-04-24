@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import rooms as R
 import game_logic as GL
+import stats as ST
 
 app = FastAPI(title='CrapKa Server')
 
@@ -21,6 +22,11 @@ _STATIC_DIR = Path(__file__).parent.parent
 @app.get('/health')
 async def health():
     return {'ok': True}
+
+
+@app.get('/stats')
+async def get_stats():
+    return ST.get_stats()
 
 
 @app.post('/room')
@@ -125,6 +131,18 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 if not ok:
                     await ws.send_json({'type': 'move_rejected', 'seq': data.get('seq'), 'reason': err})
                     continue
+
+                if (
+                    room.G.get('phase') == 'game-over'
+                    and room.G.get('winner') is not None
+                    and not room.stats_recorded
+                ):
+                    room.stats_recorded = True
+                    winner_idx = room.G['winner']
+                    ST.record_game(
+                        room.player_names[winner_idx],
+                        room.player_names[1 - winner_idx],
+                    )
 
                 move_info = _build_move_info(room.G, pidx, data)
 
