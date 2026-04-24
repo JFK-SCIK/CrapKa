@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.2';
+const _VER_NET = '0.1.3';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -63,7 +63,6 @@ function netDisconnect() {
   NET.pending    = false;
   NET.canUndo    = false;
   NET.movedThisTurn = false;
-  _updateOooopsBtn();
 }
 
 // ── Connexion interne ─────────────────────────────────────────────────────────
@@ -111,7 +110,6 @@ function _netOnMessage(data) {
       NET.movedThisTurn = false;
       _netApplyState(data.state);
       render();
-      _updateOooopsBtn();
       showStartModal(data.state.cur, data.first_reason || '');
       break;
 
@@ -133,7 +131,6 @@ function _netOnMessage(data) {
       const applyAndRender = () => {
         _netApplyState(data.state);
         render();
-        _updateOooopsBtn();
         if (G.phase === 'game-over' && G.winner !== null) {
           setTimeout(() => showVictory(G.winner), 300);
         } else if (data.undo) {
@@ -164,7 +161,6 @@ function _netOnMessage(data) {
 
     case 'undo_rejected':
       setStatus(data.reason === 'refused' ? 'Annulation refusée par l\'adversaire.' : 'Annulation impossible.');
-      _updateOooopsBtn();
       break;
 
     case 'opponent_disconnected':
@@ -328,29 +324,20 @@ function _netAnimateMove(info, cb) {
 
 // ── Bouton Oooops ────────────────────────────────────────────────────────────
 
-function _updateOooopsBtn() {
-  const btn = document.getElementById('btn-oooops');
-  if (!btn) return;
-  const show = !!(UI.netMode && !NET.pending && NET.movedThisTurn
-                  && G && G.cur === NET.pidx && G.phase === 'play');
-  btn.style.display = show ? '' : 'none';
-}
-
 function clickOoooops() {
-  if (!NET.canUndo) {
-    document.getElementById('mtitle').textContent = '↩ Oooops';
-    document.getElementById('mbody').innerHTML =
-      '<p style="text-align:center;padding:8px 0;">Et quoi encore,<br>une carte a été découverte !!!</p>';
-    const el = document.getElementById('mbtns'); el.innerHTML = '';
-    const b = document.createElement('button'); b.className = 'btn';
-    b.textContent = 'Fermer'; b.onclick = closeModal; el.appendChild(b);
-    document.getElementById('movl').classList.add('on');
+  if (NET.canUndo) {
+    NET.canUndo = false;
+    NET.ws.send(JSON.stringify({type: 'undo_request'}));
+    setStatus('Demande d\'annulation envoyée…');
     return;
   }
-  NET.canUndo = false;
-  NET.ws.send(JSON.stringify({type: 'undo_request'}));
-  setStatus('Demande d\'annulation envoyée…');
-  _updateOooopsBtn();
+  document.getElementById('mtitle').textContent = '↩ Oooops';
+  document.getElementById('mbody').innerHTML =
+    '<p style="text-align:center;padding:8px 0;">Et quoi encore,<br>une carte a été découverte !!!</p>';
+  const el = document.getElementById('mbtns'); el.innerHTML = '';
+  const b = document.createElement('button'); b.className = 'btn';
+  b.textContent = 'Fermer'; b.onclick = closeModal; el.appendChild(b);
+  document.getElementById('movl').classList.add('on');
 }
 
 function _netShowUndoAsk(name) {
