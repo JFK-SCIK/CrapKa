@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.4';
+const _VER_NET = '0.1.5';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -164,7 +164,17 @@ function _netOnMessage(data) {
       break;
 
     case 'undo_rejected':
-      setStatus(data.reason === 'refused' ? 'Annulation refusée par l\'adversaire.' : 'Annulation impossible.');
+      if (data.reason === 'refused') {
+        document.getElementById('mtitle').textContent = '↩ Oooops';
+        document.getElementById('mbody').innerHTML =
+          '<p style="text-align:center;padding:8px 0;">Le crevard, il a refusé !</p>';
+        const _el = document.getElementById('mbtns'); _el.innerHTML = '';
+        const _b = document.createElement('button'); _b.className = 'btn';
+        _b.textContent = 'Fermer'; _b.onclick = closeModal; _el.appendChild(_b);
+        document.getElementById('movl').classList.add('on');
+      } else {
+        setStatus('Annulation impossible.');
+      }
       break;
 
     case 'opponent_disconnected':
