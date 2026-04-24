@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.5';
+const _VER_NET = '0.1.6';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -345,9 +345,11 @@ function clickOoooops() {
     setStatus('Demande d\'annulation envoyée…');
     return;
   }
+  const msg = NET.movedThisTurn
+    ? 'Et quoi encore,<br>une carte a été découverte !!!'
+    : 'Rien à annuler, joue !';
   document.getElementById('mtitle').textContent = '↩ Oooops';
-  document.getElementById('mbody').innerHTML =
-    '<p style="text-align:center;padding:8px 0;">Et quoi encore,<br>une carte a été découverte !!!</p>';
+  document.getElementById('mbody').innerHTML = '<p style="text-align:center;padding:8px 0;">' + msg + '</p>';
   const el = document.getElementById('mbtns'); el.innerHTML = '';
   const b = document.createElement('button'); b.className = 'btn';
   b.textContent = 'Fermer'; b.onclick = closeModal; el.appendChild(b);
