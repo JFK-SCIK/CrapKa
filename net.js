@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.6';
+const _VER_NET = '0.1.7';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -163,11 +163,15 @@ function _netOnMessage(data) {
       _netShowUndoAsk(data.name);
       break;
 
-    case 'undo_rejected':
-      if (data.reason === 'refused') {
+    case 'undo_rejected': {
+      if (data.reason === 'refused' || data.reason === 'refused_final') {
+        if (data.reason === 'refused') NET.canUndo = true;
+        const msg = data.reason === 'refused_final'
+          ? 'Tu n\'as pas compris,<br>il a dit <b>NOOOOOOOON</b> !'
+          : 'Le crevard, il a refusé !';
         document.getElementById('mtitle').textContent = '↩ Oooops';
         document.getElementById('mbody').innerHTML =
-          '<p style="text-align:center;padding:8px 0;">Le crevard, il a refusé !</p>';
+          '<p style="text-align:center;padding:8px 0;">' + msg + '</p>';
         const _el = document.getElementById('mbtns'); _el.innerHTML = '';
         const _b = document.createElement('button'); _b.className = 'btn';
         _b.textContent = 'Fermer'; _b.onclick = closeModal; _el.appendChild(_b);
@@ -176,6 +180,7 @@ function _netOnMessage(data) {
         setStatus('Annulation impossible.');
       }
       break;
+    }
 
     case 'opponent_disconnected':
       setStatus('⚠️ Adversaire déconnecté…');

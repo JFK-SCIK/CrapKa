@@ -157,6 +157,7 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 if data.get('accepted') and room.prev_state:
                     room.G = room.prev_state
                     room.prev_state = None
+                    room.undo_refusals = 0
                     for i in range(2):
                         await room.send_to(i, {
                             'type':      'state_update',
@@ -166,8 +167,14 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                             'undo':      True,
                         })
                 else:
-                    room.prev_state = None
-                    await room.send_to(requester, {'type': 'undo_rejected', 'reason': 'refused'})
+                    room.undo_refusals += 1
+                    if room.undo_refusals >= 3:
+                        room.prev_state = None
+                        room.undo_refusals = 0
+                        await room.send_to(requester, {'type': 'undo_rejected', 'reason': 'refused_final'})
+                    else:
+                        room.can_undo = True
+                        await room.send_to(requester, {'type': 'undo_rejected', 'reason': 'refused'})
                 continue
 
             if msg_type == 'move':
@@ -194,6 +201,7 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 room.prev_state     = prev_g if can_undo else None
                 room.can_undo       = can_undo
                 room.undo_requester = None
+                room.undo_refusals  = 0
 
                 if (
                     room.G.get('phase') == 'game-over'
