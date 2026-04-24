@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.3';
+const _VER_NET = '0.1.4';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -63,6 +63,8 @@ function netDisconnect() {
   NET.pending    = false;
   NET.canUndo    = false;
   NET.movedThisTurn = false;
+  const undoBtn = document.getElementById('btn-undo');
+  if (undoBtn) undoBtn.style.display = '';
 }
 
 // ── Connexion interne ─────────────────────────────────────────────────────────
@@ -70,6 +72,8 @@ function netDisconnect() {
 function _netConnect(roomCode, playerName) {
   UI.netMode = true;
   NET.pending = false;
+  const undoBtn = document.getElementById('btn-undo');
+  if (undoBtn) undoBtn.style.display = 'none';
   const ws = new WebSocket(`${_NET_WS}/ws/${roomCode}`);
   NET.ws = ws;
 

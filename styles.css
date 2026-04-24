@@ -277,5 +277,5 @@ body{
   /* Header compact : titre masqué, tous les boutons sauf Menu masqués */
   #hdr h1{display:none;}
   #hdr{padding:3px 8px;}
-  #step-controls,#hdr-controls>.btn:not(.red):not(#btn-undo){display:none!important;}
+  #step-controls,#hdr-controls>.btn:not(.red):not(#btn-undo):not(#btn-oooops){display:none!important;}
 }
