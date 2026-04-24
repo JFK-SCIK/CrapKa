@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +28,20 @@ async def health():
 @app.get('/stats')
 async def get_stats():
     return ST.get_stats()
+
+
+@app.get('/status')
+async def status():
+    rooms = []
+    for code, room in R._rooms.items():
+        rooms.append({
+            'code':     code,
+            'players':  room.player_names,
+            'connected': [ws is not None for ws in room.connections],
+            'phase':    room.G.get('phase') if room.G else None,
+            'idle_min': round((time.time() - room.last_activity) / 60, 1),
+        })
+    return {'rooms': rooms, 'count': len(rooms)}
 
 
 @app.post('/room')
