@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.8';
+const _VER_NET = '0.1.9';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -168,7 +168,7 @@ function _netOnMessage(data) {
       break;
 
     case 'undo_ask':
-      _netShowUndoAsk(data.name);
+      _netShowUndoAsk(data.name, data.attempt || 1);
       break;
 
     case 'undo_rejected': {
@@ -181,7 +181,7 @@ function _netOnMessage(data) {
           NET.undoRefusals++;
           NET.canUndo = true;
           msg = NET.undoRefusals === 1
-            ? 'Le crevard, il a refusé !'
+            ? 'Tu vas pas aimer, mais ta demande est refuséee !'
             : 'Toujours pas ! Essaie encore,<br>tu vas l\'avoir à l\'usure…';
         }
         document.getElementById('mtitle').textContent = '↩ Oooops';
@@ -381,10 +381,18 @@ function clickOoooops() {
   document.getElementById('movl').classList.add('on');
 }
 
-function _netShowUndoAsk(name) {
+function _netShowUndoAsk(name, attempt) {
+  let intro;
+  if (attempt >= 3) {
+    intro = 'Tu me dis si ton adversaire t\'énerve.<br>On accepte ?';
+  } else if (attempt === 2) {
+    intro = name + ' a l\'air d\'y tenir,<br>tu veux pas être sympa ?';
+  } else {
+    intro = name + ' souhaite annuler son dernier coup.<br>Êtes-vous d\'accord ?';
+  }
   document.getElementById('mtitle').textContent = '↩ Annulation demandée';
   document.getElementById('mbody').innerHTML =
-    '<p style="text-align:center;padding:8px 0;">' + name + ' souhaite annuler<br>son dernier coup.<br><br>Êtes-vous d\'accord ?</p>';
+    '<p style="text-align:center;padding:8px 0;">' + intro + '</p>';
   const el = document.getElementById('mbtns'); el.innerHTML = '';
   const yes = document.createElement('button'); yes.className = 'btn';
   yes.textContent = '✓ Oui';

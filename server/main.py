@@ -144,8 +144,9 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 room.undo_requester = pidx
                 room.can_undo = False
                 await room.send_to(1 - pidx, {
-                    'type': 'undo_ask',
-                    'name': room.player_names[pidx],
+                    'type':    'undo_ask',
+                    'name':    room.player_names[pidx],
+                    'attempt': room.undo_refusals + 1,
                 })
                 continue
 
