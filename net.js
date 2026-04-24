@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.7';
+const _VER_NET = '0.1.8';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -10,13 +10,15 @@ const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
 const _NET_HTTP = _NET_WS.replace('wss://', 'https://').replace('ws://', 'http://');
 
 const NET = {
-  ws:            null,
-  roomCode:      null,
-  pidx:          null,
-  seq:           0,
-  pending:       false,
-  canUndo:       false,
-  movedThisTurn: false,
+  ws:               null,
+  roomCode:         null,
+  pidx:             null,
+  seq:              0,
+  pending:          false,
+  canUndo:          false,
+  movedThisTurn:    false,
+  undoRefusals:     0,
+  undoFinalRefused: false,
 };
 
 // ── API publique ─────────────────────────────────────────────────────────────
@@ -120,15 +122,21 @@ function _netOnMessage(data) {
     case 'state_update': {
       NET.pending = false;
       if ('can_undo' in data) {
-        NET.canUndo       = data.can_undo;
-        NET.movedThisTurn = true;
+        NET.canUndo          = data.can_undo;
+        NET.movedThisTurn    = true;
+        NET.undoRefusals     = 0;
+        NET.undoFinalRefused = false;
       } else if (!data.undo) {
-        NET.canUndo       = false;
-        NET.movedThisTurn = false;
+        NET.canUndo          = false;
+        NET.movedThisTurn    = false;
+        NET.undoRefusals     = 0;
+        NET.undoFinalRefused = false;
       }
       if (data.undo) {
-        NET.canUndo       = false;
-        NET.movedThisTurn = false;
+        NET.canUndo          = false;
+        NET.movedThisTurn    = false;
+        NET.undoRefusals     = 0;
+        NET.undoFinalRefused = false;
       }
       const mi = data.move_info;
       if (mi) _netLogMove(mi);
@@ -165,10 +173,17 @@ function _netOnMessage(data) {
 
     case 'undo_rejected': {
       if (data.reason === 'refused' || data.reason === 'refused_final') {
-        if (data.reason === 'refused') NET.canUndo = true;
-        const msg = data.reason === 'refused_final'
-          ? 'Tu n\'as pas compris,<br>il a dit <b>NOOOOOOOON</b> !'
-          : 'Le crevard, il a refusé !';
+        let msg;
+        if (data.reason === 'refused_final') {
+          NET.undoFinalRefused = true;
+          msg = 'Tu n\'as pas compris,<br>il a dit <b>NOOOOOOOON</b> !';
+        } else {
+          NET.undoRefusals++;
+          NET.canUndo = true;
+          msg = NET.undoRefusals === 1
+            ? 'Le crevard, il a refusé !'
+            : 'Toujours pas ! Essaie encore,<br>tu vas l\'avoir à l\'usure…';
+        }
         document.getElementById('mtitle').textContent = '↩ Oooops';
         document.getElementById('mbody').innerHTML =
           '<p style="text-align:center;padding:8px 0;">' + msg + '</p>';
@@ -350,9 +365,14 @@ function clickOoooops() {
     setStatus('Demande d\'annulation envoyée…');
     return;
   }
-  const msg = NET.movedThisTurn
-    ? 'Et quoi encore,<br>une carte a été découverte !!!'
-    : 'Rien à annuler, joue !';
+  let msg;
+  if (NET.undoFinalRefused) {
+    msg = 'Le troisième refus est DEFINITIF !<br>Joue et essaie de gagner quand même…';
+  } else if (NET.movedThisTurn) {
+    msg = 'Et quoi encore,<br>une carte a été découverte !!!';
+  } else {
+    msg = 'Rien à annuler, joue !';
+  }
   document.getElementById('mtitle').textContent = '↩ Oooops';
   document.getElementById('mbody').innerHTML = '<p style="text-align:center;padding:8px 0;">' + msg + '</p>';
   const el = document.getElementById('mbtns'); el.innerHTML = '';
