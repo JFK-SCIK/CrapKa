@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.1';
+const _VER_NET = '0.1.2';
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -10,11 +10,13 @@ const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
 const _NET_HTTP = _NET_WS.replace('wss://', 'https://').replace('ws://', 'http://');
 
 const NET = {
-  ws:        null,
-  roomCode:  null,
-  pidx:      null,
-  seq:       0,
-  pending:   false,
+  ws:            null,
+  roomCode:      null,
+  pidx:          null,
+  seq:           0,
+  pending:       false,
+  canUndo:       false,
+  movedThisTurn: false,
 };
 
 // ── API publique ─────────────────────────────────────────────────────────────
@@ -55,10 +57,13 @@ function netIsMyTurn() {
 
 function netDisconnect() {
   if (NET.ws) { NET.ws.close(); NET.ws = null; }
-  UI.netMode  = false;
-  NET.pidx    = null;
-  NET.roomCode = null;
-  NET.pending  = false;
+  UI.netMode     = false;
+  NET.pidx       = null;
+  NET.roomCode   = null;
+  NET.pending    = false;
+  NET.canUndo    = false;
+  NET.movedThisTurn = false;
+  _updateOooopsBtn();
 }
 
 // ── Connexion interne ─────────────────────────────────────────────────────────
@@ -102,20 +107,37 @@ function _netOnMessage(data) {
 
     case 'game_start':
       NET.pending = false;
+      NET.canUndo = false;
+      NET.movedThisTurn = false;
       _netApplyState(data.state);
       render();
+      _updateOooopsBtn();
       showStartModal(data.state.cur, data.first_reason || '');
       break;
 
     case 'state_update': {
       NET.pending = false;
+      if ('can_undo' in data) {
+        NET.canUndo       = data.can_undo;
+        NET.movedThisTurn = true;
+      } else if (!data.undo) {
+        NET.canUndo       = false;
+        NET.movedThisTurn = false;
+      }
+      if (data.undo) {
+        NET.canUndo       = false;
+        NET.movedThisTurn = false;
+      }
       const mi = data.move_info;
       if (mi) _netLogMove(mi);
       const applyAndRender = () => {
         _netApplyState(data.state);
         render();
+        _updateOooopsBtn();
         if (G.phase === 'game-over' && G.winner !== null) {
           setTimeout(() => showVictory(G.winner), 300);
+        } else if (data.undo) {
+          setStatus('Coup annulé — à vous de rejouer');
         } else if (G.cur === NET.pidx) {
           setStatus('Votre tour');
         } else {
@@ -134,6 +156,15 @@ function _netOnMessage(data) {
       NET.pending = false;
       setStatus('Coup refusé (' + (data.reason || '?') + ')');
       render();
+      break;
+
+    case 'undo_ask':
+      _netShowUndoAsk(data.name);
+      break;
+
+    case 'undo_rejected':
+      setStatus(data.reason === 'refused' ? 'Annulation refusée par l\'adversaire.' : 'Annulation impossible.');
+      _updateOooopsBtn();
       break;
 
     case 'opponent_disconnected':
@@ -293,6 +324,48 @@ function _netAnimateMove(info, cb) {
   } else {
     cb();
   }
+}
+
+// ── Bouton Oooops ────────────────────────────────────────────────────────────
+
+function _updateOooopsBtn() {
+  const btn = document.getElementById('btn-oooops');
+  if (!btn) return;
+  const show = !!(UI.netMode && !NET.pending && NET.movedThisTurn
+                  && G && G.cur === NET.pidx && G.phase === 'play');
+  btn.style.display = show ? '' : 'none';
+}
+
+function clickOoooops() {
+  if (!NET.canUndo) {
+    document.getElementById('mtitle').textContent = '↩ Oooops';
+    document.getElementById('mbody').innerHTML =
+      '<p style="text-align:center;padding:8px 0;">Et quoi encore,<br>une carte a été découverte !!!</p>';
+    const el = document.getElementById('mbtns'); el.innerHTML = '';
+    const b = document.createElement('button'); b.className = 'btn';
+    b.textContent = 'Fermer'; b.onclick = closeModal; el.appendChild(b);
+    document.getElementById('movl').classList.add('on');
+    return;
+  }
+  NET.canUndo = false;
+  NET.ws.send(JSON.stringify({type: 'undo_request'}));
+  setStatus('Demande d\'annulation envoyée…');
+  _updateOooopsBtn();
+}
+
+function _netShowUndoAsk(name) {
+  document.getElementById('mtitle').textContent = '↩ Annulation demandée';
+  document.getElementById('mbody').innerHTML =
+    '<p style="text-align:center;padding:8px 0;">' + name + ' souhaite annuler<br>son dernier coup.<br><br>Êtes-vous d\'accord ?</p>';
+  const el = document.getElementById('mbtns'); el.innerHTML = '';
+  const yes = document.createElement('button'); yes.className = 'btn';
+  yes.textContent = '✓ Oui';
+  yes.onclick = () => { closeModal(); NET.ws.send(JSON.stringify({type: 'undo_response', accepted: true})); };
+  const no = document.createElement('button'); no.className = 'btn';
+  no.style.background = 'var(--bg3)'; no.textContent = '✗ Non';
+  no.onclick = () => { closeModal(); NET.ws.send(JSON.stringify({type: 'undo_response', accepted: false})); };
+  el.appendChild(yes); el.appendChild(no);
+  document.getElementById('movl').classList.add('on');
 }
 
 // ── Log des coups en mode réseau ─────────────────────────────────────────────

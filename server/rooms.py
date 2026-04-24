@@ -20,6 +20,9 @@ class Room:
         self.names_ready     = [False, False]
         self.last_activity   = time.time()
         self.stats_recorded  = False
+        self.prev_state      = None   # snapshot G avant le dernier coup
+        self.can_undo        = False  # ce coup est annulable
+        self.undo_requester  = None   # pidx ayant demandé l'annulation
 
     def touch(self):
         self.last_activity = time.time()

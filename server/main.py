@@ -1,4 +1,5 @@
 import time
+from copy import deepcopy
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -136,16 +137,63 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 await ws.send_json({'type': 'pong'})
                 continue
 
+            if msg_type == 'undo_request':
+                if not room.can_undo or room.prev_state is None or room.undo_requester is not None:
+                    await ws.send_json({'type': 'undo_rejected', 'reason': 'not_allowed'})
+                    continue
+                room.undo_requester = pidx
+                room.can_undo = False
+                await room.send_to(1 - pidx, {
+                    'type': 'undo_ask',
+                    'name': room.player_names[pidx],
+                })
+                continue
+
+            if msg_type == 'undo_response':
+                requester = room.undo_requester
+                room.undo_requester = None
+                if requester is None:
+                    continue
+                if data.get('accepted') and room.prev_state:
+                    room.G = room.prev_state
+                    room.prev_state = None
+                    for i in range(2):
+                        await room.send_to(i, {
+                            'type':      'state_update',
+                            'seq':       None,
+                            'move_info': None,
+                            'state':     GL.filter_state(room.G, i),
+                            'undo':      True,
+                        })
+                else:
+                    room.prev_state = None
+                    await room.send_to(requester, {'type': 'undo_rejected', 'reason': 'refused'})
+                continue
+
             if msg_type == 'move':
                 if not room.G or room.G.get('phase') == 'game-over':
                     await ws.send_json({'type': 'error', 'reason': 'no_game', 'seq': data.get('seq')})
                     continue
 
+                prev_g = deepcopy(room.G)
                 ok, err = GL.apply_move(room.G, pidx, data)
 
                 if not ok:
                     await ws.send_json({'type': 'move_rejected', 'seq': data.get('seq'), 'reason': err})
                     continue
+
+                action      = data.get('action', '')
+                src_type    = data.get('src_type', 'hand')
+                future_grew = len(room.G['futurePioche']) > len(prev_g['futurePioche'])
+                can_undo = (
+                    action == 'play'
+                    and src_type == 'hand'
+                    and not future_grew
+                    and room.G.get('phase') != 'game-over'
+                )
+                room.prev_state     = prev_g if can_undo else None
+                room.can_undo       = can_undo
+                room.undo_requester = None
 
                 if (
                     room.G.get('phase') == 'game-over'
@@ -162,12 +210,15 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 move_info = _build_move_info(room.G, pidx, data)
 
                 for i in range(2):
-                    await room.send_to(i, {
+                    msg = {
                         'type':      'state_update',
                         'seq':       data.get('seq'),
                         'move_info': move_info,
                         'state':     GL.filter_state(room.G, i),
-                    })
+                    }
+                    if i == pidx:
+                        msg['can_undo'] = can_undo
+                    await room.send_to(i, msg)
 
     except WebSocketDisconnect:
         room.connections[pidx] = None
