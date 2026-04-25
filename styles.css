@@ -124,10 +124,9 @@ body{
 .plabel .nm{color:var(--gold);font-weight:bold;}
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
-.prow-top{display:grid;grid-template-columns:1fr calc(4*var(--cw) + 12px) var(--cw);grid-template-rows:auto auto;gap:2px 5px;align-items:start;}
-.prow-top .hand{grid-column:1;grid-row:1;justify-content:flex-end;min-width:0;}
-.prow-top .dzone{grid-column:2;grid-row:2;}
-.prow-top .cr-col{grid-column:3;grid-row:1/3;}
+.prow-top{justify-content:flex-end;}
+.prow-top .right-col{align-items:flex-end;}
+.prow-top .hand{justify-content:flex-end;}
 .cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);display:flex;flex-direction:column;gap:2px;
   border-radius:7px;outline:1.5px solid var(--accent);outline-offset:1px;}
 /* Slot de hauteur --ch : badge + nom empilés, centrés verticalement */

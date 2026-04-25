@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.26';
+const _VER_UI='1.2.27';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -394,8 +394,7 @@ function renderPzone(pidx, isTop=false){
 
   // ── Assemblage ──
   if(isTop){
-    h+=handHtml;
-    h+=dzoneHtml;
+    h+=`<div class="right-col">${handHtml}${dzoneHtml}</div>`;
     h+=crHtml;
   } else {
     h+=crHtml;
