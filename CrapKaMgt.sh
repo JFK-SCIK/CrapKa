@@ -92,7 +92,7 @@ while true; do
       ;;
     8)
       _header
-      curl -s https://crapka.duckdns.org/stats | python3 -m json.tool
+      python3 "$DIR/server/show_stats.py"
       _pause
       ;;
     9)
