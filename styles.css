@@ -124,7 +124,7 @@ body{
 .plabel .nm{color:var(--gold);font-weight:bold;}
 .plabel .cr{background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;}
 .prow{display:flex;gap:5px;align-items:flex-start;}
-.prow-top{justify-content:flex-end;}
+.prow-top{justify-content:flex-end;padding-right:var(--prow-top-pr,0px);}
 .prow-top .right-col{align-items:flex-end;}
 .prow-top .hand{justify-content:flex-end;}
 .cr-col{flex-shrink:0;cursor:pointer;width:var(--cw);display:flex;flex-direction:column;gap:2px;

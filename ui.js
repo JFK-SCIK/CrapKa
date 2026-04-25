@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.27';
+const _VER_UI='1.2.28';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1021,6 +1021,12 @@ function computeLayout(){
   root.style.setProperty('--ch',ch+'px');
   root.style.setProperty('--cf',Math.max(8,Math.round(cw*0.22))+'px');
   root.style.setProperty('--cs',Math.max(10,Math.round(cw*0.38))+'px');
+
+  // Décale la zone adverse pour aligner cr-col sur la colonne Recyclage.
+  // Recyclage right  = gamePad(4) + midInnerPad(8) + cw + gap(5) + 4*cw+12 + gap(5) + cw = 34 + 6*cw depuis game-col left
+  // prow-top right   = gameW - gamePad(4) - pzonePad(5) = gameW - 9
+  // padding-right    = (gameW - 9) - (34 + 6*cw) = gameW - 43 - 6*cw
+  root.style.setProperty('--prow-top-pr', Math.max(0, gameW - 43 - 6 * cw) + 'px');
 }
 
 // Resizer drag
