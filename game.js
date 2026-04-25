@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.0';
+const _VER_GAME='1.2.1';
 const SUITS=['♠','♥','♦','♣'];
 const SCOL={'♠':'black','♥':'red','♦':'red','♣':'black'};
 const VALS=['A','2','3','4','5','6','7','8','9','10','V','D','R'];
@@ -69,7 +69,7 @@ function newGame(vsAI){
 
   G={
     players:[
-      {name:'Joueur 1',crapette:cr0,hand:h0,defausse:[[],[],[],[]]},
+      {name:localStorage.getItem('crapka_name')||'Joueur 1',crapette:cr0,hand:h0,defausse:[[],[],[],[]]},
       {name:vsAI?'IA':'Joueur 2',crapette:cr1,hand:h1,defausse:[[],[],[],[]]},
     ],
     commons:cm,
