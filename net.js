@@ -1,7 +1,19 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.9';
+const _VER_NET = '0.1.10';
+const _SESSION_KEY = 'crapka_session';
+
+function _saveSession(roomCode, pidx, token) {
+  localStorage.setItem(_SESSION_KEY, JSON.stringify({roomCode, pidx, token}));
+}
+function _clearSession() {
+  localStorage.removeItem(_SESSION_KEY);
+}
+function _loadSession() {
+  try { return JSON.parse(localStorage.getItem(_SESSION_KEY) || 'null'); }
+  catch { return null; }
+}
 
 // Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
 const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
@@ -65,8 +77,25 @@ function netDisconnect() {
   NET.pending    = false;
   NET.canUndo    = false;
   NET.movedThisTurn = false;
+  _clearSession();
   const undoBtn = document.getElementById('btn-undo');
   if (undoBtn) undoBtn.style.display = '';
+}
+
+function netReconnect(session) {
+  if (!session) return;
+  UI.netMode   = true;
+  NET.roomCode = session.roomCode;
+  NET.pending  = false;
+  const undoBtn = document.getElementById('btn-undo');
+  if (undoBtn) undoBtn.style.display = 'none';
+  setStatus('Reconnexion à ' + session.roomCode + '…');
+  const ws = new WebSocket(`${_NET_WS}/ws/${session.roomCode}`);
+  NET.ws = ws;
+  ws.onopen    = () => ws.send(JSON.stringify({type: 'reconnect', token: session.token}));
+  ws.onmessage = e => { try { _netOnMessage(JSON.parse(e.data)); } catch(err) { console.error(err); } };
+  ws.onclose   = () => { if (UI.netMode) setStatus('Connexion perdue. Rechargez la page pour rejoindre.'); };
+  ws.onerror   = () => setStatus('Erreur de connexion au serveur');
 }
 
 // ── Connexion interne ─────────────────────────────────────────────────────────
@@ -99,10 +128,29 @@ function _netOnMessage(data) {
 
     case 'connected':
       NET.pidx = data.pidx;
+      if (data.token) _saveSession(NET.roomCode, data.pidx, data.token);
       if (NET.pidx === 0) {
         _netShowWaiting();
       } else {
         setStatus('Connecté ! Démarrage de la partie…');
+      }
+      break;
+
+    case 'reconnected':
+      NET.pidx             = data.pidx;
+      NET.pending          = false;
+      NET.canUndo          = data.can_undo || false;
+      NET.movedThisTurn    = false;
+      NET.undoRefusals     = 0;
+      NET.undoFinalRefused = false;
+      _netApplyState(data.state);
+      render();
+      if (G.phase === 'game-over' && G.winner !== null) {
+        setTimeout(() => showVictory(G.winner), 300);
+      } else {
+        setStatus(G.cur === NET.pidx
+          ? '✓ Reconnecté — à toi de jouer !'
+          : '✓ Reconnecté — tour de ' + G.players[G.cur].name + '…');
       }
       break;
 
@@ -198,12 +246,20 @@ function _netOnMessage(data) {
     }
 
     case 'opponent_disconnected':
-      setStatus('⚠️ Adversaire déconnecté…');
+      setStatus('⏳ Adversaire déconnecté — en attente de reconnexion…');
+      break;
+
+    case 'opponent_reconnected':
+      setStatus('✓ ' + (data.name || 'Adversaire') + ' reconnecté !');
       break;
 
     case 'error':
       setStatus('Erreur : ' + data.reason);
-      if (data.reason === 'room_not_found') { netDisconnect(); showMenu(); }
+      if (data.reason === 'room_not_found' || data.reason === 'session_expired') {
+        _clearSession();
+        netDisconnect();
+        showMenu();
+      }
       break;
   }
 }

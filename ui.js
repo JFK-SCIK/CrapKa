@@ -476,6 +476,12 @@ function _buildVerBadge(){
 }
 
 function renderMenu(){
+  const _sess = _loadSession();
+  const resumeBtn = _sess
+    ? `<button class="btn" style="padding:13px;font-size:0.95rem;background:var(--gold);color:var(--bg);font-weight:bold;"
+         onclick="netReconnect(_loadSession())">
+         ↩ Reprendre ${_sess.roomCode}
+       </button>` : '';
   document.getElementById('game').innerHTML=`
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
                 height:100%;gap:18px;padding:20px;">
@@ -485,6 +491,7 @@ function renderMenu(){
         <p style="color:var(--text2);margin-top:6px;font-size:0.82rem">Le jeu de cartes familial</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:230px;">
+        ${resumeBtn}
         <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="newGame(true)">
           🤖 Contre l'IA
         </button>
@@ -500,7 +507,6 @@ function renderMenu(){
       </div>
       <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>
     </div>`;
-  // btn-ai supprimé, géré par step-next
 }
 
 function showBtns(){
@@ -919,6 +925,7 @@ function showMenu(){
   const ov=document.getElementById('victory-overlay');if(ov)ov.remove();
   if(_startPanel){_startPanel.remove();_startPanel=null;}
   _waitingToStart=false;
+  if(UI.netMode) netDisconnect();
   clearTimeout(_aiTimer);G=null;UI.sel=null;setStatus('Bienvenue !');renderMenu();
 }
 function showRules(){

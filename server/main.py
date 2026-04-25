@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import secrets
 import subprocess
 import time
 from copy import deepcopy
@@ -48,6 +49,18 @@ async def _wait_and_deploy():
         pass
 
 app = FastAPI(title='CrapKa Server')
+
+
+@app.on_event('startup')
+async def _startup():
+    R.load_rooms()
+    asyncio.create_task(_room_cleanup_loop())
+
+
+async def _room_cleanup_loop():
+    while True:
+        await asyncio.sleep(600)   # toutes les 10 minutes
+        R._cleanup()
 
 app.add_middleware(
     CORSMiddleware,
@@ -176,41 +189,78 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
         await ws.close()
         return
 
-    pidx = room.available_slot()
-    if pidx is None:
-        await ws.send_json({'type': 'error', 'reason': 'room_full'})
+    # ── Premier message : 'set_name' (nouvelle connexion) ou 'reconnect' ──
+    try:
+        first = await ws.receive_json()
+    except Exception:
+        return
+
+    pidx: int
+    msg_type0 = first.get('type')
+
+    if msg_type0 == 'reconnect':
+        token = first.get('token', '')
+        pidx = next((i for i, t in enumerate(room.tokens) if t and t == token), -1)
+        if pidx == -1 or room.connections[pidx] is not None:
+            await ws.send_json({'type': 'error', 'reason': 'session_expired'})
+            await ws.close()
+            return
+        room.connections[pidx] = ws
+        room.touch()
+        if room.G is None:
+            # Partie pas encore commencée — renvoyer en attente
+            await ws.send_json({'type': 'connected', 'pidx': pidx,
+                                'room_code': room.code, 'token': token})
+        else:
+            await ws.send_json({
+                'type':     'reconnected',
+                'pidx':     pidx,
+                'state':    GL.filter_state(room.G, pidx),
+                'can_undo': room.can_undo and room.G.get('cur') == pidx,
+            })
+            await room.send_to(1 - pidx, {
+                'type': 'opponent_reconnected',
+                'name': room.player_names[pidx],
+            })
+
+    elif msg_type0 == 'set_name':
+        pidx = room.available_slot()
+        if pidx is None:
+            await ws.send_json({'type': 'error', 'reason': 'room_full'})
+            await ws.close()
+            return
+        token = secrets.token_hex(16)
+        room.tokens[pidx] = token
+        room.connections[pidx] = ws
+        room.touch()
+        await ws.send_json({'type': 'connected', 'pidx': pidx,
+                            'room_code': room.code, 'token': token})
+        if pidx == 1:
+            await room.send_to(0, {'type': 'opponent_connected'})
+        name = str(first.get('name', f'Joueur {pidx+1}'))[:30]
+        room.player_names[pidx] = name
+        room.names_ready[pidx] = True
+        if room.G:
+            room.G['players'][pidx]['name'] = name
+        elif room.is_full() and all(room.names_ready):
+            room.G = GL.new_game(room.player_names[0], room.player_names[1])
+            R.save_room(room)
+            for i in range(2):
+                await room.send_to(i, {
+                    'type':         'game_start',
+                    'state':        GL.filter_state(room.G, i),
+                    'first_reason': room.G.get('_firstReason', ''),
+                })
+    else:
         await ws.close()
         return
 
-    room.connections[pidx] = ws
-    room.touch()
-
-    await ws.send_json({'type': 'connected', 'pidx': pidx, 'room_code': room.code})
-
-    if pidx == 1:
-        await room.send_to(0, {'type': 'opponent_connected'})
-
+    # ── Boucle principale ─────────────────────────────────────────────────
     try:
         while True:
             data = await ws.receive_json()
             room.touch()
             msg_type = data.get('type')
-
-            if msg_type == 'set_name':
-                name = str(data.get('name', f'Joueur {pidx+1}'))[:30]
-                room.player_names[pidx] = name
-                room.names_ready[pidx] = True
-                if room.G:
-                    room.G['players'][pidx]['name'] = name
-                elif room.is_full() and all(room.names_ready):
-                    room.G = GL.new_game(room.player_names[0], room.player_names[1])
-                    for i in range(2):
-                        await room.send_to(i, {
-                            'type':         'game_start',
-                            'state':        GL.filter_state(room.G, i),
-                            'first_reason': room.G.get('_firstReason', ''),
-                        })
-                continue
 
             if msg_type == 'ping':
                 await ws.send_json({'type': 'pong'})
@@ -295,6 +345,8 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                         room.player_names[1 - winner_idx],
                     )
 
+                R.save_room(room)
+
                 move_info = _build_move_info(room.G, pidx, data)
 
                 for i in range(2):
@@ -310,9 +362,11 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
 
     except WebSocketDisconnect:
         room.connections[pidx] = None
+        R.save_room(room)
         await room.send_to(1 - pidx, {'type': 'opponent_disconnected'})
     except Exception:
         room.connections[pidx] = None
+        R.save_room(room)
 
 @app.get('/admin', response_class=HTMLResponse)
 async def admin_page(pwd: str = ''):
