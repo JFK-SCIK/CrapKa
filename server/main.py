@@ -26,13 +26,14 @@ def _check_admin(pwd: str):
 
 
 def _launch_deploy():
-    deploy_path = str(_DEPLOY_SH)
+    repo = str(Path(__file__).parent.parent)
     log = open(_DEPLOY_LOG, 'w')
+    script = f'cd {repo} && git pull origin reseau-2j && sudo systemctl restart crapka'
     # systemd-run --scope crée un cgroup séparé → le processus survit
     # au systemctl restart crapka qui tue le cgroup du service.
     for cmd in (
-        ['systemd-run', '--scope', 'bash', deploy_path],
-        ['bash', deploy_path],
+        ['systemd-run', '--scope', 'bash', '-c', script],
+        ['bash', '-c', script],
     ):
         try:
             subprocess.Popen(cmd, start_new_session=True,
