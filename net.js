@@ -146,7 +146,7 @@ function _netOnMessage(data) {
         if (G.phase === 'game-over' && G.winner !== null) {
           setTimeout(() => showVictory(G.winner), 300);
         } else if (data.undo) {
-          setStatus('Coup annulé — à vous de rejouer');
+          setStatus('Coup annulé — à toi de rejouer');
         } else if (G.cur === NET.pidx) {
           setStatus('Votre tour');
         } else {
@@ -388,7 +388,7 @@ function _netShowUndoAsk(name, attempt) {
   } else if (attempt === 2) {
     intro = name + ' a l\'air d\'y tenir,<br>tu veux pas être sympa ?';
   } else {
-    intro = name + ' souhaite annuler son dernier coup.<br>Êtes-vous d\'accord ?';
+    intro = name + ' souhaite annuler son dernier coup.<br>Tu es d\'accord ?';
   }
   document.getElementById('mtitle').textContent = '↩ Annulation demandée';
   document.getElementById('mbody').innerHTML =

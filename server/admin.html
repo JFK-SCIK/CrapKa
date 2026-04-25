@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrapKa Admin</title>
+<style>
+:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--accent:#e94560;--gold:#f5a623;--text:#eaeaea;--text2:#a0a0b0;--green:#4caf50;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:sans-serif;padding:20px;max-width:900px;margin:0 auto;}
+h1{color:var(--gold);font-size:1.5rem;margin-bottom:2px;}
+.sub{color:var(--text2);font-size:0.78rem;margin-bottom:22px;}
+.section{background:var(--bg2);border-radius:8px;padding:16px;margin-bottom:18px;}
+.section h2{color:var(--gold);font-size:0.95rem;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--bg3);}
+table{width:100%;border-collapse:collapse;font-size:0.83rem;}
+th{color:var(--text2);text-align:left;padding:6px 8px;border-bottom:1px solid var(--bg3);white-space:nowrap;}
+td{padding:5px 8px;border-bottom:1px solid var(--bg3);}
+tr:last-child td{border-bottom:none;}
+.vs td{color:var(--text2);font-style:italic;background:var(--bg);padding-left:22px;}
+.gold{color:var(--gold);font-weight:bold;}
+.win{color:var(--green);}
+.lose{color:var(--accent);}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.card{background:var(--bg3);border-radius:6px;padding:10px 16px;text-align:center;min-width:90px;}
+.card .val{font-size:1.6rem;font-weight:bold;color:var(--gold);}
+.card .lbl{font-size:0.72rem;color:var(--text2);margin-top:2px;}
+.filter{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;}
+input[type=date]{background:var(--bg3);color:var(--text);border:1px solid var(--bg3);padding:5px 8px;border-radius:4px;font-size:0.83rem;}
+button{background:var(--accent);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:0.83rem;}
+button.sec{background:var(--bg3);}
+.badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:0.72rem;font-weight:bold;}
+.badge-ai{background:#555;color:#ddd;}
+.badge-net{background:var(--accent);color:#fff;}
+.empty{color:var(--text2);text-align:center;padding:12px 0;font-style:italic;}
+.rooms-table{margin-top:12px;}
+</style>
+</head>
+<body>
+<h1>🃏 CrapKa Admin</h1>
+<p class="sub" id="refresh-lbl">Chargement…</p>
+
+<div class="section">
+  <h2>📡 Statut serveur</h2>
+  <div class="cards" id="status-cards"></div>
+  <div id="rooms-wrap"></div>
+</div>
+
+<div class="section">
+  <h2>📊 Statistiques</h2>
+  <table>
+    <thead><tr><th>Joueur</th><th>Parties</th><th>Victoires</th><th>Défaites</th><th>%</th></tr></thead>
+    <tbody id="stats-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>📅 Historique des parties</h2>
+  <div class="filter">
+    <input type="date" id="date-filter">
+    <button onclick="loadGames()">Filtrer</button>
+    <button class="sec" onclick="document.getElementById('date-filter').value='';loadGames()">Toutes</button>
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Heure</th><th>Mode</th><th>Vainqueur 🏆</th><th>Perdant</th></tr></thead>
+    <tbody id="games-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const pct = (w,g) => g>0 ? Math.round(w/g*100)+'%' : '—';
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+document.getElementById('date-filter').value = new Date().toISOString().slice(0,10);
+
+async function loadStatus(){
+  try{
+    const d = await fetch('/status').then(r=>r.json());
+    const rooms = d.rooms||[];
+    const playing = rooms.filter(r=>r.phase==='play').length;
+    const waiting = rooms.filter(r=>r.phase===null).length;
+    const players = rooms.reduce((s,r)=>s+r.connected.filter(Boolean).length,0);
+    document.getElementById('status-cards').innerHTML=`
+      <div class="card"><div class="val">${d.count}</div><div class="lbl">Salles</div></div>
+      <div class="card"><div class="val">${playing}</div><div class="lbl">En cours</div></div>
+      <div class="card"><div class="val">${waiting}</div><div class="lbl">En attente</div></div>
+      <div class="card"><div class="val">${players}</div><div class="lbl">Connectés</div></div>`;
+    if(rooms.length){
+      let t='<table class="rooms-table"><thead><tr><th>Code</th><th>Joueurs</th><th>Phase</th><th>Inactivité</th></tr></thead><tbody>';
+      for(const r of rooms){
+        const names=r.players.map((n,i)=>r.connected[i]?`<b>${esc(n)}</b>`:esc(n)).join(' vs ');
+        t+=`<tr><td class="gold">${r.code}</td><td>${names}</td><td>${r.phase||'—'}</td><td>${r.idle_min} min</td></tr>`;
+      }
+      t+='</tbody></table>';
+      document.getElementById('rooms-wrap').innerHTML=t;
+    } else {
+      document.getElementById('rooms-wrap').innerHTML='';
+    }
+  }catch(e){document.getElementById('status-cards').innerHTML='<span style="color:var(--text2)">Erreur de chargement.</span>';}
+}
+
+async function loadStats(){
+  try{
+    const data=await fetch('/stats').then(r=>r.json());
+    const players=Object.entries(data).sort((a,b)=>b[1].games-a[1].games);
+    if(!players.length){document.getElementById('stats-body').innerHTML='<tr><td colspan="5" class="empty">Aucune statistique.</td></tr>';return;}
+    let html='';
+    for(const [name,st] of players){
+      html+=`<tr>
+        <td class="gold">${esc(name)}</td>
+        <td>${st.games}</td><td class="win">${st.wins}</td>
+        <td class="lose">${st.losses}</td><td>${pct(st.wins,st.games)}</td></tr>`;
+      for(const [opp,vs] of Object.entries(st.vs).sort((a,b)=>b[1].games-a[1].games)){
+        html+=`<tr class="vs"><td>↳ vs ${esc(opp)}</td>
+          <td>${vs.games}</td><td class="win">${vs.wins}</td>
+          <td class="lose">${vs.losses}</td><td>${pct(vs.wins,vs.games)}</td></tr>`;
+      }
+    }
+    document.getElementById('stats-body').innerHTML=html;
+  }catch(e){document.getElementById('stats-body').innerHTML='<tr><td colspan="5" class="empty">Erreur.</td></tr>';}
+}
+
+async function loadGames(){
+  const date=document.getElementById('date-filter').value;
+  try{
+    const url=date?`/games?date=${date}`:'/games';
+    const games=await fetch(url).then(r=>r.json());
+    if(!games.length){document.getElementById('games-body').innerHTML='<tr><td colspan="5" class="empty">Aucune partie.</td></tr>';return;}
+    let html='';
+    for(const g of [...games].reverse()){
+      const dt=new Date(g.ts);
+      const day=dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+      const hour=dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      const isAI=g.winner==='IA'||g.loser==='IA';
+      const badge=isAI?'<span class="badge badge-ai">IA</span>':'<span class="badge badge-net">Réseau</span>';
+      html+=`<tr><td style="color:var(--text2)">${day}</td><td style="color:var(--text2)">${hour}</td>
+        <td>${badge}</td><td class="win">${esc(g.winner)}</td><td class="lose">${esc(g.loser)}</td></tr>`;
+    }
+    document.getElementById('games-body').innerHTML=html;
+  }catch(e){document.getElementById('games-body').innerHTML='<tr><td colspan="5" class="empty">Erreur.</td></tr>';}
+}
+
+async function refresh(){
+  await Promise.all([loadStatus(),loadStats(),loadGames()]);
+  document.getElementById('refresh-lbl').textContent=
+    'Actualisé à '+new Date().toLocaleTimeString('fr-FR')+' — rafraîchissement auto toutes les 30s';
+}
+
+refresh();
+setInterval(refresh,30000);
+</script>
+</body>
+</html>

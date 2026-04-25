@@ -1,12 +1,17 @@
+import json
+import os
 import time
 from copy import deepcopy
 from pathlib import Path
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import rooms as R
 import game_logic as GL
 import stats as ST
+
+ADMIN_PWD = os.environ.get('CRAPKA_ADMIN_PWD', '')
 
 app = FastAPI(title='CrapKa Server')
 
@@ -244,6 +249,25 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
         await room.send_to(1 - pidx, {'type': 'opponent_disconnected'})
     except Exception:
         room.connections[pidx] = None
+
+@app.get('/admin', response_class=HTMLResponse)
+async def admin_page(pwd: str = ''):
+    if ADMIN_PWD and pwd != ADMIN_PWD:
+        raise HTTPException(status_code=403, detail='Mot de passe incorrect')
+    admin_file = Path(__file__).parent / 'admin.html'
+    return HTMLResponse(admin_file.read_text(encoding='utf-8'))
+
+
+@app.get('/games')
+async def get_games(date: str = ''):
+    log_file = Path(__file__).parent / 'games.json'
+    if not log_file.exists():
+        return []
+    games = json.loads(log_file.read_text(encoding='utf-8'))
+    if date:
+        games = [g for g in games if g['ts'].startswith(date)]
+    return games
+
 
 # Fichiers statiques — monté en dernier pour ne pas masquer les routes API
 app.mount('/', StaticFiles(directory=_STATIC_DIR, html=True), name='static')

@@ -291,4 +291,46 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 ### Long terme
 - Suite descendante en Défausse (règle optionnelle)
 - Évaluation probabiliste de la Pioche
-- Mode multijoueur réseau (FastAPI + WebSockets)
+- Centraliser tous les textes dans un fichier i18n pour traduction
+- Préprod / blue-green deployment
+- Session reconnection après déconnexion réseau
+- UUIDs stables pour identité joueur
+
+---
+
+## Mode réseau (branch reseau-2j)
+
+### Fichiers supplémentaires
+- `net.js` : gestion WebSocket, messages réseau, Oooops
+- `server/main.py` : FastAPI, WebSocket, routes REST
+- `server/rooms.py` : état des salles réseau
+- `server/game_logic.py` : règles serveur (copie Python de game.js)
+- `server/stats.py` : persistance stats.json + games.json
+- `server/admin.html` : interface d'administration web
+- `server/show_games.py` : script console historique parties
+- `server/show_stats.py` : script console statistiques
+- `deploy.sh` : déploiement GCP avec option --wait
+- `CrapKaMgt.sh` : menu interactif de gestion serveur
+
+### Endpoints REST
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Healthcheck |
+| `GET /status` | Salles actives, joueurs connectés, phase, inactivité |
+| `GET /stats` | Statistiques par joueur (games/wins/losses/vs) |
+| `POST /stats/record` | Enregistrer une partie solo |
+| `GET /games?date=YYYY-MM-DD` | Historique parties (filtré ou complet) |
+| `GET /admin?pwd=…` | Interface d'administration web |
+| `WS /ws/{room_code}` | WebSocket jeu réseau |
+
+### Fonctionnalité Oooops (annulation réseau)
+- Bouton toujours visible, annule le dernier coup joué depuis la main sur une pile
+- L'adversaire doit accepter (popup côté adversaire)
+- 3 refus max par tentative ; au 3ème refus : définitif
+- Messages différenciés selon le numéro de tentative (joueur et adversaire)
+- `room.prev_state` = snapshot deepcopy avant le coup, effacé après undo ou 3ème refus
+
+### Identité joueur
+- `localStorage['crapka_name']` : nom persistant entre sessions
+- Solo : auto-génère `Joueur-XXXX` si absent (`getPlayerName()` dans game.js)
+- Réseau : nom saisi à la connexion, stocké en localStorage
