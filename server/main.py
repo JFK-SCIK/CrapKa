@@ -14,8 +14,9 @@ import rooms as R
 import game_logic as GL
 import stats as ST
 
-ADMIN_PWD  = os.environ.get('CRAPKA_ADMIN_PWD', '')
-_DEPLOY_SH = Path(__file__).parent.parent / 'deploy.sh'
+ADMIN_PWD   = os.environ.get('CRAPKA_ADMIN_PWD', '')
+_DEPLOY_SH  = Path(__file__).parent.parent / 'deploy.sh'
+_DEPLOY_LOG = Path(__file__).parent / 'deploy.log'
 _deploy_task: asyncio.Task | None = None
 
 
@@ -25,12 +26,20 @@ def _check_admin(pwd: str):
 
 
 def _launch_deploy():
-    subprocess.Popen(
-        ['bash', str(_DEPLOY_SH)],
-        start_new_session=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    deploy_path = str(_DEPLOY_SH)
+    log = open(_DEPLOY_LOG, 'w')
+    # systemd-run --scope crée un cgroup séparé → le processus survit
+    # au systemctl restart crapka qui tue le cgroup du service.
+    for cmd in (
+        ['systemd-run', '--scope', 'bash', deploy_path],
+        ['bash', deploy_path],
+    ):
+        try:
+            subprocess.Popen(cmd, start_new_session=True,
+                             stdout=log, stderr=log)
+            return
+        except FileNotFoundError:
+            continue
 
 
 async def _wait_and_deploy():
@@ -385,6 +394,15 @@ async def get_games(date: str = ''):
     if date:
         games = [g for g in games if g['ts'].startswith(date)]
     return games
+
+
+@app.get('/deploy/log')
+async def deploy_log_view(pwd: str = ''):
+    from fastapi.responses import PlainTextResponse
+    _check_admin(pwd)
+    if _DEPLOY_LOG.exists():
+        return PlainTextResponse(_DEPLOY_LOG.read_text(encoding='utf-8', errors='replace'))
+    return PlainTextResponse('Aucun log de déploiement disponible.')
 
 
 # Fichiers statiques — monté en dernier pour ne pas masquer les routes API

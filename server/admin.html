@@ -118,6 +118,39 @@ const _expanded = new Set();
 
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
+let _pollTimer   = null;
+let _serverDown  = false;
+let _fastPolling = false;
+
+function _setLbl(txt) {
+  document.getElementById('refresh-lbl').textContent = txt;
+}
+
+function _startPoll(fast) {
+  _fastPolling = fast;
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(_tick, fast ? 5000 : 30000);
+}
+
+async function _tick() {
+  try {
+    await fetch('/health');
+    if (_serverDown) {
+      _serverDown = false;
+      _deployPending = false;
+      updateDeployBtn();
+      _setLbl('✅ Serveur relancé — déploiement terminé !');
+      _startPoll(false);
+    }
+    await refresh();
+  } catch {
+    if (!_serverDown) {
+      _serverDown = true;
+      _setLbl('🔄 Redémarrage du serveur en cours…');
+    }
+  }
+}
+
 function updateDeployBtn() {
   const btn = document.getElementById('btn-deploy-wait');
   if (_deployPending) {
@@ -136,17 +169,21 @@ async function deployNow() {
     if (!confirm('⚠️ '+active.length+' salle(s) avec joueur(s) connecté(s).\nDéployer quand même ?')) return;
   }
   const r = await fetch('/deploy/now?pwd='+encodeURIComponent(PWD), {method:'POST'}).catch(()=>null);
-  document.getElementById('refresh-lbl').textContent =
-    r && r.ok ? '🚀 Deploy lancé — le serveur redémarre…' : '❌ Erreur de déploiement.';
+  if (r && r.ok) {
+    _setLbl('🚀 Deploy lancé — surveillance toutes les 5s…');
+    _startPoll(true);
+  } else {
+    _setLbl('❌ Erreur lors du déploiement.');
+  }
 }
 
 async function toggleDeployWait() {
   if (_deployPending) {
     const r = await fetch('/deploy/wait?pwd='+encodeURIComponent(PWD), {method:'DELETE'}).catch(()=>null);
-    if (r && r.ok) { _deployPending = false; updateDeployBtn(); }
+    if (r && r.ok) { _deployPending = false; updateDeployBtn(); _startPoll(false); }
   } else {
     const r = await fetch('/deploy/wait?pwd='+encodeURIComponent(PWD), {method:'POST'}).catch(()=>null);
-    if (r && r.ok) { _deployPending = true; updateDeployBtn(); }
+    if (r && r.ok) { _deployPending = true; updateDeployBtn(); _startPoll(true); }
   }
 }
 
@@ -304,12 +341,13 @@ async function loadGames() {
 
 async function refresh() {
   await Promise.all([loadStatus(), loadStats(), loadGames()]);
-  document.getElementById('refresh-lbl').textContent =
-    'Actualisé à ' + new Date().toLocaleTimeString('fr-FR') + ' — rafraîchissement auto toutes les 30s';
+  if (!_serverDown && !_fastPolling) {
+    _setLbl('Actualisé à ' + new Date().toLocaleTimeString('fr-FR') + ' — rafraîchissement auto toutes les 30s');
+  }
 }
 
 refresh();
-setInterval(refresh, 30000);
+_startPoll(false);
 </script>
 </body>
 </html>
