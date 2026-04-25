@@ -317,7 +317,7 @@ function renderPzone(pidx, isTop=false){
   const isAI=UI.vsAI&&pidx===UI.aiIdx;
 
   let h=`<div class="pzone ${isActive?'active':'inactive'}" data-pidx="${pidx}">`;
-  h+=`<div class="prow">`;
+  h+=`<div class="prow${isTop?' prow-top':''}">`;
 
   // ── Crapette ──
   // Chaque joueur a deux "slots" de hauteur --ch dans cr-col, alignés avec les
