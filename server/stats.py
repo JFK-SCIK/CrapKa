@@ -1,8 +1,10 @@
 import json
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 
 _STATS_FILE = Path(__file__).parent / 'stats.json'
+_LOG_FILE   = Path(__file__).parent / 'games.json'
 _lock = threading.Lock()
 
 
@@ -45,6 +47,23 @@ def record_game(winner_name: str, loser_name: str):
             else:
                 v['losses'] += 1
         _save(data)
+        _log_game(winner_name, loser_name)
+
+
+def _log_game(winner: str, loser: str):
+    entry = {
+        'ts':     datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'winner': winner,
+        'loser':  loser,
+    }
+    log = []
+    if _LOG_FILE.exists():
+        try:
+            log = json.loads(_LOG_FILE.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+    log.append(entry)
+    _LOG_FILE.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 def get_stats() -> dict:
