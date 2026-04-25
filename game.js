@@ -1,7 +1,16 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.1';
+const _VER_GAME='1.2.2';
+function getPlayerName(){
+  let n=localStorage.getItem('crapka_name');
+  if(!n){
+    n='Joueur-'+Math.floor(Math.random()*0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+    localStorage.setItem('crapka_name',n);
+  }
+  return n;
+}
+
 const SUITS=['♠','♥','♦','♣'];
 const SCOL={'♠':'black','♥':'red','♦':'red','♣':'black'};
 const VALS=['A','2','3','4','5','6','7','8','9','10','V','D','R'];
@@ -69,7 +78,7 @@ function newGame(vsAI){
 
   G={
     players:[
-      {name:localStorage.getItem('crapka_name')||'Joueur 1',crapette:cr0,hand:h0,defausse:[[],[],[],[]]},
+      {name:getPlayerName(),crapette:cr0,hand:h0,defausse:[[],[],[],[]]},
       {name:vsAI?'IA':'Joueur 2',crapette:cr1,hand:h1,defausse:[[],[],[],[]]},
     ],
     commons:cm,
