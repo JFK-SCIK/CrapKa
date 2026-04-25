@@ -1,7 +1,7 @@
 import time
 from copy import deepcopy
 from pathlib import Path
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import rooms as R
@@ -29,6 +29,16 @@ async def health():
 @app.get('/stats')
 async def get_stats():
     return ST.get_stats()
+
+
+@app.post('/stats/record')
+async def record_stats(req: Request):
+    body = await req.json()
+    winner = body.get('winner', '').strip()
+    loser  = body.get('loser',  '').strip()
+    if winner and loser and winner != loser:
+        ST.record_game(winner, loser)
+    return {'ok': True}
 
 
 @app.get('/status')

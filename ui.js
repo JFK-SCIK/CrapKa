@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.24';
+const _VER_UI='1.2.25';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1129,6 +1129,12 @@ function showVictory(winnerIdx){
   if(!G) return;
   const existing=document.getElementById('victory-overlay');
   if(existing) existing.remove();
+  if(!UI.netMode && G.winner !== null){
+    const w=G.players[G.winner].name;
+    const l=G.players[1-G.winner].name;
+    fetch(_NET_HTTP+'/stats/record',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({winner:w,loser:l})}).catch(()=>{});
+  }
   const humanWon=UI.netMode?(winnerIdx===UI.pidx):(!UI.vsAI||winnerIdx!==UI.aiIdx);
   const name=G.players[winnerIdx].name;
   const ov=document.createElement('div');
