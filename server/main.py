@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+import subprocess
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -11,7 +13,39 @@ import rooms as R
 import game_logic as GL
 import stats as ST
 
-ADMIN_PWD = os.environ.get('CRAPKA_ADMIN_PWD', '')
+ADMIN_PWD  = os.environ.get('CRAPKA_ADMIN_PWD', '')
+_DEPLOY_SH = Path(__file__).parent.parent / 'deploy.sh'
+_deploy_task: asyncio.Task | None = None
+
+
+def _check_admin(pwd: str):
+    if ADMIN_PWD and pwd != ADMIN_PWD:
+        raise HTTPException(status_code=403, detail='Mot de passe incorrect')
+
+
+def _launch_deploy():
+    subprocess.Popen(
+        ['bash', str(_DEPLOY_SH)],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+async def _wait_and_deploy():
+    try:
+        while True:
+            has_players = any(
+                ws is not None
+                for room in R._rooms.values()
+                for ws in room.connections
+            )
+            if not has_players:
+                _launch_deploy()
+                return
+            await asyncio.sleep(30)
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(title='CrapKa Server')
 
@@ -51,13 +85,43 @@ async def status():
     rooms = []
     for code, room in R._rooms.items():
         rooms.append({
-            'code':     code,
-            'players':  room.player_names,
+            'code':      code,
+            'players':   room.player_names,
             'connected': [ws is not None for ws in room.connections],
-            'phase':    room.G.get('phase') if room.G else None,
-            'idle_min': round((time.time() - room.last_activity) / 60, 1),
+            'phase':     room.G.get('phase') if room.G else None,
+            'idle_min':  round((time.time() - room.last_activity) / 60, 1),
         })
-    return {'rooms': rooms, 'count': len(rooms)}
+    return {
+        'rooms':          rooms,
+        'count':          len(rooms),
+        'pending_deploy': _deploy_task is not None and not _deploy_task.done(),
+    }
+
+
+@app.post('/deploy/now')
+async def deploy_now(pwd: str = ''):
+    _check_admin(pwd)
+    _launch_deploy()
+    return {'ok': True}
+
+
+@app.post('/deploy/wait')
+async def deploy_wait_start(pwd: str = ''):
+    global _deploy_task
+    _check_admin(pwd)
+    if _deploy_task is None or _deploy_task.done():
+        _deploy_task = asyncio.create_task(_wait_and_deploy())
+    return {'ok': True, 'pending': True}
+
+
+@app.delete('/deploy/wait')
+async def deploy_wait_cancel(pwd: str = ''):
+    global _deploy_task
+    _check_admin(pwd)
+    if _deploy_task and not _deploy_task.done():
+        _deploy_task.cancel()
+    _deploy_task = None
+    return {'ok': True, 'pending': False}
 
 
 @app.post('/room')
