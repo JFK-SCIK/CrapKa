@@ -239,7 +239,7 @@ function renderStats(data) {
     const arrow = vsEntries.length
       ? `<span class="toggle${exp ? ' open' : ''}">▶</span>`
       : `<span class="toggle"></span>`;
-    html += `<tr class="row-player" onclick="togglePlayer(${JSON.stringify(name)})">
+    html += `<tr class="row-player" data-name="${esc(name)}" onclick="togglePlayer(this.dataset.name)">
       <td class="gold" style="padding-left:6px">${arrow} ${esc(name)}</td>
       <td class="stats-num">${st.games}</td>
       <td class="stats-num win">${st.wins}</td>
