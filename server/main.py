@@ -109,6 +109,12 @@ async def get_version():
         return {'hash': '?', 'message': str(e), 'date': '?', 'branch': '?'}
 
 
+@app.get('/players')
+async def get_players(pwd: str = ''):
+    _check_admin(pwd)
+    return PL._load()
+
+
 @app.get('/stats')
 async def get_stats():
     return ST.get_stats()
