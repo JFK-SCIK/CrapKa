@@ -241,11 +241,11 @@ async function loadStatus() {
       <div class="card"><div class="val">${players}</div><div class="lbl">Connectés</div></div>
       <div class="card"><div class="val">${soloActive.length}</div><div class="lbl">Solo actifs</div></div>`;
     if (soloActive.length) {
-      let t = '<table class="rooms-table" style="margin-top:8px"><thead><tr><th>Solo actif</th><th>Depuis</th><th>Durée</th></tr></thead><tbody>';
+      let t = '<table class="rooms-table" style="margin-top:8px"><thead><tr><th>Solo actif</th><th>Depuis</th><th>Durée</th><th class="num">Coups</th></tr></thead><tbody>';
       for (const s of soloActive) {
         const dt = new Date(s.started).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
         const dur = s.elapsed_min !== null ? s.elapsed_min + ' min' : '?';
-        t += `<tr><td class="gold">${esc(s.alias)}</td><td style="color:var(--text2)">${dt}</td><td style="color:var(--text2)">${dur}</td></tr>`;
+        t += `<tr><td class="gold">${esc(s.alias)}</td><td style="color:var(--text2)">${dt}</td><td style="color:var(--text2)">${dur}</td><td class="stats-num">${s.moves ?? 0}</td></tr>`;
       }
       t += '</tbody></table>';
       document.getElementById('solo-wrap').innerHTML = t;

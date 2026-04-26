@@ -137,14 +137,16 @@ async def status():
         })
     now = time.time()
     solo = []
-    for uuid, started in _active_solo.items():
+    for uuid, info in _active_solo.items():
         alias = PL.get_alias(uuid) or uuid[:8]
+        started = info.get('started', '') if isinstance(info, dict) else info
+        moves   = info.get('moves', 0)   if isinstance(info, dict) else 0
         try:
-            started_ts = time.mktime(time.strptime(started, '%Y-%m-%dT%H:%M:%SZ'))
+            started_ts  = time.mktime(time.strptime(started, '%Y-%m-%dT%H:%M:%SZ'))
             elapsed_min = round((now - started_ts) / 60, 1)
         except Exception:
             elapsed_min = None
-        solo.append({'alias': alias, 'started': started, 'elapsed_min': elapsed_min})
+        solo.append({'alias': alias, 'started': started, 'elapsed_min': elapsed_min, 'moves': moves})
     return {
         'rooms':          rooms,
         'count':          len(rooms),
@@ -189,16 +191,20 @@ async def solo_start(req: Request):
     if uuid in _active_solo:
         solo_key = PL.solo_key(uuid)
         ST.record_abandon(solo_key)
-    _active_solo[uuid] = now
+    _active_solo[uuid] = {'started': now, 'moves': 0}
     return {'ok': True}
 
 
 @app.post('/solo/ping')
 async def solo_ping(req: Request):
-    body = await req.json()
-    uuid = body.get('uuid', '').strip()
+    body  = await req.json()
+    uuid  = body.get('uuid', '').strip()
+    moves = body.get('moves')
     if uuid and uuid in _active_solo:
-        _active_solo[uuid] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        _active_solo[uuid]['started'] = _active_solo[uuid].get('started',
+            time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+        if moves is not None:
+            _active_solo[uuid]['moves'] = int(moves)
     return {'ok': True}
 
 
