@@ -39,6 +39,8 @@ button.sec{background:var(--bg3);}
 .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:0.72rem;font-weight:bold;}
 .badge-ai{background:#555;color:#ddd;}
 .badge-net{background:var(--accent);color:#fff;}
+.badge-solo{background:#2a6e4a;color:#cfe;}
+.badge-aband{background:#5a3a1a;color:#fda;}
 .empty{color:var(--text2);text-align:center;padding:12px 0;font-style:italic;}
 .rooms-table{margin-top:12px;}
 .actions{display:flex;gap:8px;margin-bottom:18px;align-items:center;flex-wrap:wrap;}
@@ -116,6 +118,20 @@ let _deployPending = false;
 let _lastRooms = [];
 let _lastStats  = null;
 const _expanded = new Set();
+let _playersData = {};
+
+async function loadPlayers() {
+  try { _playersData = await fetch('/players').then(r=>r.json()); } catch {}
+}
+
+function displayName(key) {
+  const m = String(key).match(/\(([a-f0-9]{8})\)$/);
+  if (!m) return esc(key);
+  const alias = m[1];
+  const entry = Object.values(_playersData).find(e => e.alias === alias);
+  const real = entry && entry.last_name ? entry.last_name : '';
+  return real ? `${esc(key)} <span style="color:var(--text2);font-size:0.8em">· ${esc(real)}</span>` : esc(key);
+}
 
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
@@ -303,7 +319,7 @@ function renderStats(data) {
       ? `<span class="toggle${exp ? ' open' : ''}">▶</span>`
       : `<span class="toggle"></span>`;
     html += `<tr class="row-player" data-name="${esc(name)}" onclick="togglePlayer(this.dataset.name)">
-      <td class="gold" style="padding-left:6px">${arrow} ${esc(name)}</td>
+      <td class="gold" style="padding-left:6px">${arrow} ${displayName(name)}</td>
       <td class="stats-num">${st.games}</td>
       <td class="stats-num win">${st.wins}</td>
       <td class="stats-num lose">${st.losses}</td>
@@ -347,14 +363,26 @@ async function loadGames() {
       const dt   = new Date(g.ts);
       const day  = dt.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
       const hour = dt.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-      const isAI = g.winner === 'IA' || g.loser === 'IA';
-      const badge = isAI ? '<span class="badge badge-ai">IA</span>' : '<span class="badge badge-net">Réseau</span>';
+      const isAbandoned = g.status === 'abandoned';
+      const isSolo = g.winner === 'IA' || g.loser === 'IA'
+                  || /^-(\(|$)/.test(g.winner) || /^-(\(|$)/.test(g.loser);
+      const badge = isAbandoned
+        ? '<span class="badge badge-aband">Aband.</span>'
+        : isSolo
+          ? '<span class="badge badge-solo">Solo</span>'
+          : '<span class="badge badge-net">Réseau</span>';
+      const winnerCell = isAbandoned
+        ? `<td style="color:var(--text2)">${displayName(g.winner)}</td>`
+        : `<td class="win">${displayName(g.winner)}</td>`;
+      const loserCell = isAbandoned
+        ? `<td style="color:var(--text2);font-style:italic">abandonné</td>`
+        : `<td class="lose">${displayName(g.loser)}</td>`;
       html += `<tr>
         <td style="color:var(--text2)">${day}</td>
         <td style="color:var(--text2)">${hour}</td>
         <td>${badge}</td>
-        <td class="win">${esc(g.winner)}</td>
-        <td class="lose">${esc(g.loser)}</td>
+        ${winnerCell}
+        ${loserCell}
       </tr>`;
     }
     document.getElementById('games-body').innerHTML = html;
@@ -391,7 +419,7 @@ async function loadVersion() {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function refresh() {
-  await Promise.all([loadStatus(), loadStats(), loadGames()]);
+  await Promise.all([loadPlayers(), loadStatus(), loadStats(), loadGames()]);
   if (!_serverDown && !_fastPolling) {
     _setLbl('Actualisé à ' + new Date().toLocaleTimeString('fr-FR') + ' — rafraîchissement auto toutes les 30s');
   }

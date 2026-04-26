@@ -241,7 +241,11 @@ async def solo_end(req: Request):
     if uuid:
         _active_solo.pop(uuid, None)
     if winner and loser and winner != loser:
-        ST.record_game(winner, loser)
+        player_key = PL.solo_key(uuid) if uuid else '-'
+        if winner == 'IA':
+            ST.record_game('IA', player_key)
+        else:
+            ST.record_game(player_key, 'IA')
     return {'ok': True}
 
 
