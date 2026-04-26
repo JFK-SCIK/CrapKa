@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.30';
+const _VER_UI='1.2.31';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -457,6 +457,12 @@ function renderMiddle(){
   return h;
 }
 
+let _gitHash = '';
+fetch('/version').then(r=>r.json()).then(v=>{
+  _gitHash = v.hash || '';
+  if (!G) renderMenu();
+}).catch(()=>{});
+
 function _buildVerBadge(){
   const exp=window._EXPECTED||{};
   const actual={game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP};
@@ -472,7 +478,8 @@ function _buildVerBadge(){
   }).join(' | ');
   const col=mismatches.length===0?'#2ecc71':'#e74c3c';
   const lbl=mismatches.length===0?'OK':'KO';
-  return '<span style="color:'+col+';font-weight:bold;cursor:default;" title="'+detail+'">'+lbl+' v'+maxVer+'</span>';
+  const hash=_gitHash?' ('+_gitHash+')':'';
+  return '<span style="color:'+col+';font-weight:bold;cursor:default;" title="'+detail+'">'+lbl+' v'+maxVer+hash+'</span>';
 }
 
 function renderMenu(){
