@@ -167,6 +167,15 @@ async def solo_start(req: Request):
     return {'ok': True}
 
 
+@app.post('/solo/ping')
+async def solo_ping(req: Request):
+    body = await req.json()
+    uuid = body.get('uuid', '').strip()
+    if uuid and uuid in _active_solo:
+        _active_solo[uuid] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    return {'ok': True}
+
+
 @app.post('/solo/end')
 async def solo_end(req: Request):
     body   = await req.json()
