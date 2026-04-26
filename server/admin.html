@@ -64,6 +64,7 @@ button.sec{background:var(--bg3);}
 </div>
 
 <h1>🃏 CrapKa Admin</h1>
+<p class="sub" id="version-lbl" style="margin-bottom:2px">…</p>
 <p class="sub" id="refresh-lbl">Chargement…</p>
 <div class="actions">
   <button class="btn-icon" onclick="refresh()" title="Rafraîchir">↺</button>
@@ -141,6 +142,7 @@ async function _tick() {
       updateDeployBtn();
       _setLbl('✅ Serveur relancé — déploiement terminé !');
       _startPoll(false);
+      loadVersion();
     }
     await refresh();
   } catch {
@@ -337,6 +339,22 @@ async function loadGames() {
   }
 }
 
+// ── Version git ──────────────────────────────────────────────────────────────
+
+async function loadVersion() {
+  try {
+    const v = await fetch('/version').then(r => r.json());
+    const dt = v.date ? new Date(v.date).toLocaleString('fr-FR', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    }) : '?';
+    document.getElementById('version-lbl').textContent =
+      `📦 ${v.hash} · ${v.message} · ${dt} (${v.branch})`;
+  } catch {
+    document.getElementById('version-lbl').textContent = '📦 version inconnue';
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function refresh() {
@@ -346,6 +364,7 @@ async function refresh() {
   }
 }
 
+loadVersion();
 refresh();
 _startPoll(false);
 </script>

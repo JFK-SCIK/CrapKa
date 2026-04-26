@@ -94,6 +94,29 @@ async def health():
     return {'ok': True}
 
 
+@app.get('/version')
+async def get_version():
+    repo = str(Path(__file__).parent.parent)
+    try:
+        log = subprocess.check_output(
+            ['git', '-C', repo, 'log', '-1', '--format=%h|%s|%ci'],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        parts = log.split('|', 2)
+        branch = subprocess.check_output(
+            ['git', '-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD'],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        return {
+            'hash':    parts[0] if len(parts) > 0 else '?',
+            'message': parts[1] if len(parts) > 1 else '?',
+            'date':    parts[2] if len(parts) > 2 else '?',
+            'branch':  branch,
+        }
+    except Exception as e:
+        return {'hash': '?', 'message': str(e), 'date': '?', 'branch': '?'}
+
+
 @app.get('/stats')
 async def get_stats():
     return ST.get_stats()
