@@ -47,6 +47,11 @@ def get_alias(uuid: str) -> str | None:
         return _load().get(uuid, {}).get('alias')
 
 
+def get_name(uuid: str) -> str | None:
+    with _lock:
+        return _load().get(uuid, {}).get('last_name')
+
+
 def net_key(name: str, uuid: str | None) -> str:
     """Clé stats pour une partie réseau : NomRéseau(alias8) ou juste le nom."""
     if uuid:

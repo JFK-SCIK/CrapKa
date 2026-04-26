@@ -138,15 +138,25 @@ async def status():
     now = time.time()
     solo = []
     for uuid, info in _active_solo.items():
-        alias = PL.get_alias(uuid) or uuid[:8]
-        started = info.get('started', '') if isinstance(info, dict) else info
-        moves   = info.get('moves', 0)   if isinstance(info, dict) else 0
+        alias     = PL.get_alias(uuid) or uuid[:8]
+        pname     = PL.get_name(uuid) or alias
+        started   = info.get('started',   '') if isinstance(info, dict) else info
+        last_seen = info.get('last_seen', started) if isinstance(info, dict) else started
+        moves     = info.get('moves', 0)       if isinstance(info, dict) else 0
         try:
-            started_ts  = time.mktime(time.strptime(started, '%Y-%m-%dT%H:%M:%SZ'))
+            started_ts  = time.mktime(time.strptime(started,   '%Y-%m-%dT%H:%M:%SZ'))
+            seen_ts     = time.mktime(time.strptime(last_seen,  '%Y-%m-%dT%H:%M:%SZ'))
+            idle_min    = round((now - seen_ts)    / 60, 1)
             elapsed_min = round((now - started_ts) / 60, 1)
         except Exception:
-            elapsed_min = None
-        solo.append({'alias': alias, 'started': started, 'elapsed_min': elapsed_min, 'moves': moves})
+            idle_min = elapsed_min = None
+        solo.append({
+            'name':        pname,
+            'started':     started,
+            'idle_min':    idle_min,
+            'elapsed_min': elapsed_min,
+            'moves':       moves,
+        })
     return {
         'rooms':          rooms,
         'count':          len(rooms),
@@ -191,7 +201,7 @@ async def solo_start(req: Request):
     if uuid in _active_solo:
         solo_key = PL.solo_key(uuid)
         ST.record_abandon(solo_key)
-    _active_solo[uuid] = {'started': now, 'moves': 0}
+    _active_solo[uuid] = {'started': now, 'last_seen': now, 'moves': 0}
     return {'ok': True}
 
 
@@ -200,9 +210,9 @@ async def solo_ping(req: Request):
     body  = await req.json()
     uuid  = body.get('uuid', '').strip()
     moves = body.get('moves')
+    now   = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     if uuid and uuid in _active_solo:
-        _active_solo[uuid]['started'] = _active_solo[uuid].get('started',
-            time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+        _active_solo[uuid]['last_seen'] = now
         if moves is not None:
             _active_solo[uuid]['moves'] = int(moves)
     return {'ok': True}

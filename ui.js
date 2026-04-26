@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.31';
+const _VER_UI='1.2.32';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -507,9 +507,6 @@ function renderMenu(){
         </button>
         <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="showNetJoinPanel()">
           🔗 Rejoindre une partie
-        </button>
-        <button class="btn" style="padding:11px;font-size:0.85rem;background:var(--bg3);" onclick="showStats()">
-          📊 Statistiques
         </button>
       </div>
       <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>

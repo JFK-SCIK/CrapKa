@@ -78,8 +78,7 @@ button.sec{background:var(--bg3);}
     <button class="sec" onclick="showPlayersPopup()">👥 Joueurs actifs</button>
   </div>
   <div class="cards" id="status-cards"></div>
-  <div id="solo-wrap"></div>
-  <div id="rooms-wrap"></div>
+  <div id="parties-wrap"></div>
 </div>
 
 <div class="section">
@@ -141,11 +140,9 @@ async function _tick() {
       _serverDown = false;
       _deployPending = false;
       updateDeployBtn();
-      _setLbl('✅ Serveur relancé — déploiement terminé !');
-      _startPoll(false);
-      loadVersion();
     }
     await refresh();
+    if (_fastPolling) await loadVersion();
   } catch {
     if (!_serverDown) {
       _serverDown = true;
@@ -175,6 +172,7 @@ async function deployNow() {
   if (r && r.ok) {
     _setLbl('🚀 Deploy lancé — surveillance toutes les 5s…');
     _startPoll(true);
+    setTimeout(_tick, 3000);
   } else {
     _setLbl('❌ Erreur lors du déploiement.');
   }
@@ -240,28 +238,37 @@ async function loadStatus() {
       <div class="card"><div class="val">${waiting}</div><div class="lbl">En attente</div></div>
       <div class="card"><div class="val">${players}</div><div class="lbl">Connectés</div></div>
       <div class="card"><div class="val">${soloActive.length}</div><div class="lbl">Solo actifs</div></div>`;
-    if (soloActive.length) {
-      let t = '<table class="rooms-table" style="margin-top:8px"><thead><tr><th>Solo actif</th><th>Depuis</th><th>Durée</th><th class="num">Coups</th></tr></thead><tbody>';
-      for (const s of soloActive) {
-        const dt = new Date(s.started).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-        const dur = s.elapsed_min !== null ? s.elapsed_min + ' min' : '?';
-        t += `<tr><td class="gold">${esc(s.alias)}</td><td style="color:var(--text2)">${dt}</td><td style="color:var(--text2)">${dur}</td><td class="stats-num">${s.moves ?? 0}</td></tr>`;
-      }
-      t += '</tbody></table>';
-      document.getElementById('solo-wrap').innerHTML = t;
-    } else {
-      document.getElementById('solo-wrap').innerHTML = '';
+    const rows = [];
+    for (const s of soloActive) {
+      const depuis = s.started ? new Date(s.started).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : '—';
+      const idle   = s.idle_min    !== null ? s.idle_min    + ' min' : '—';
+      rows.push(`<tr>
+        <td style="color:var(--text2);font-size:0.78rem">Solo</td>
+        <td class="gold">${esc(s.name)} <span style="color:var(--text2)">vs IA</span></td>
+        <td style="color:var(--text2)">—</td>
+        <td style="color:var(--text2)">${depuis}</td>
+        <td style="color:var(--text2)">${idle}</td>
+        <td class="stats-num">${s.moves ?? 0}</td>
+      </tr>`);
     }
-    if (_lastRooms.length) {
-      let t = '<table class="rooms-table"><thead><tr><th>Code</th><th>Joueurs</th><th>Phase</th><th>Inactivité</th></tr></thead><tbody>';
-      for (const r of _lastRooms) {
-        const names = r.players.map((n,i) => r.connected[i] ? `<b>${esc(n)}</b>` : esc(n)).join(' vs ');
-        t += `<tr><td class="gold">${r.code}</td><td>${names}</td><td>${r.phase||'—'}</td><td>${r.idle_min} min</td></tr>`;
-      }
-      t += '</tbody></table>';
-      document.getElementById('rooms-wrap').innerHTML = t;
+    for (const r of _lastRooms) {
+      const names = r.players.map((n,i) => r.connected[i] ? `<b>${esc(n)}</b>` : esc(n)).join(' <span style="color:var(--text2)">vs</span> ');
+      rows.push(`<tr>
+        <td class="gold">${esc(r.code)}</td>
+        <td>${names}</td>
+        <td style="color:var(--text2)">${r.phase||'—'}</td>
+        <td style="color:var(--text2)">—</td>
+        <td style="color:var(--text2)">${r.idle_min} min</td>
+        <td class="stats-num">—</td>
+      </tr>`);
+    }
+    if (rows.length) {
+      document.getElementById('parties-wrap').innerHTML =
+        '<table class="rooms-table" style="margin-top:12px"><thead><tr>'
+        + '<th>Salle</th><th>Joueurs</th><th>Phase</th><th>Depuis</th><th>Inactivité</th><th class="num">Coups</th>'
+        + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
     } else {
-      document.getElementById('rooms-wrap').innerHTML = '';
+      document.getElementById('parties-wrap').innerHTML = '';
     }
     if (typeof d.pending_deploy !== 'undefined' && d.pending_deploy !== _deployPending) {
       _deployPending = d.pending_deploy;
@@ -356,6 +363,8 @@ async function loadGames() {
 
 // ── Version git ──────────────────────────────────────────────────────────────
 
+let _deployedHash = '';
+
 async function loadVersion() {
   try {
     const v = await fetch('/version').then(r => r.json());
@@ -365,6 +374,13 @@ async function loadVersion() {
     }) : '?';
     document.getElementById('version-lbl').textContent =
       `📦 ${v.hash} · ${v.message} · ${dt} (${v.branch})`;
+    if (_deployedHash && v.hash && v.hash !== _deployedHash) {
+      _deployedHash = v.hash;
+      _setLbl('✅ Déploiement terminé ! (' + v.hash + ')');
+      _startPoll(false);
+    } else {
+      _deployedHash = v.hash || _deployedHash;
+    }
   } catch {
     document.getElementById('version-lbl').textContent = '📦 version inconnue';
   }
