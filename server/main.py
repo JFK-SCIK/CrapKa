@@ -213,11 +213,15 @@ async def solo_ping(req: Request):
     body  = await req.json()
     uuid  = body.get('uuid', '').strip()
     moves = body.get('moves')
+    name  = str(body.get('name', '') or '').strip()[:30]
     now   = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    if uuid and uuid in _active_solo:
-        _active_solo[uuid]['last_seen'] = now
-        if moves is not None:
-            _active_solo[uuid]['moves'] = int(moves)
+    if uuid:
+        if name:
+            PL.register(uuid, name)
+        if uuid in _active_solo:
+            _active_solo[uuid]['last_seen'] = now
+            if moves is not None:
+                _active_solo[uuid]['moves'] = int(moves)
     return {'ok': True}
 
 

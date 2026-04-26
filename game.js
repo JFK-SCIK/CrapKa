@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.6';
+const _VER_GAME='1.2.7';
 function getPlayerName(){
   let n=localStorage.getItem('crapka_name');
   if(!n){
@@ -513,7 +513,7 @@ function nextPlayer(){
   addMoveLog(`── Tour ${G.players[1-G.cur].name}→${G.players[1-G.cur===0?1:0].name}`,'turn-sep');
   saveSnap();
   if(UI.vsAI) fetch('/solo/ping',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({uuid:getUUID(),moves:_moveCount})}).catch(()=>{});
+    body:JSON.stringify({uuid:getUUID(),name:getPlayerName(),moves:_moveCount})}).catch(()=>{});
   G.cur=1-G.cur;G.phase='play';
   UI.sel=null;UI.vtgts=[];
   drawToFive(()=>{
