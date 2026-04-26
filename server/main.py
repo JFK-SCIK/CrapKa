@@ -35,18 +35,10 @@ def _launch_deploy():
     repo = str(Path(__file__).parent.parent)
     log = open(_DEPLOY_LOG, 'w')
     script = f'cd {repo} && git pull origin reseau-2j && sudo systemctl restart crapka'
-    # systemd-run --scope crée un cgroup séparé → le processus survit
-    # au systemctl restart crapka qui tue le cgroup du service.
-    for cmd in (
-        ['systemd-run', '--scope', 'bash', '-c', script],
-        ['bash', '-c', script],
-    ):
-        try:
-            subprocess.Popen(cmd, start_new_session=True,
-                             stdout=log, stderr=log)
-            return
-        except FileNotFoundError:
-            continue
+    # start_new_session=True détache le processus du cgroup du service.
+    # systemctl restart envoie l'ordre à systemd avant que bash soit tué.
+    subprocess.Popen(['bash', '-c', script], start_new_session=True,
+                     stdout=log, stderr=log)
 
 
 async def _wait_and_deploy():
