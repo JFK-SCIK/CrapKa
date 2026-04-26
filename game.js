@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.5';
+const _VER_GAME='1.2.6';
 function getPlayerName(){
   let n=localStorage.getItem('crapka_name');
   if(!n){
@@ -110,7 +110,7 @@ function newGame(vsAI){
   showStartModal(first, reason);
   if (vsAI) {
     fetch('/solo/start', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({uuid: getUUID()})}).catch(()=>{});
+      body: JSON.stringify({uuid: getUUID(), name: getPlayerName()})}).catch(()=>{});
   }
 }
 

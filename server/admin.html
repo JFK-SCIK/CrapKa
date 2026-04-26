@@ -241,10 +241,12 @@ async function loadStatus() {
     const rows = [];
     for (const s of soloActive) {
       const depuis = s.started ? new Date(s.started).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : '—';
-      const idle   = s.idle_min    !== null ? s.idle_min    + ' min' : '—';
+      const idleVal = s.idle_min ?? s.elapsed_min;
+      const idle    = idleVal != null ? idleVal + ' min' : '—';
+      const pname   = s.name || s.alias || '?';
       rows.push(`<tr>
         <td style="color:var(--text2);font-size:0.78rem">Solo</td>
-        <td class="gold">${esc(s.name)} <span style="color:var(--text2)">vs IA</span></td>
+        <td class="gold">${esc(pname)} <span style="color:var(--text2)">vs IA</span></td>
         <td style="color:var(--text2)">—</td>
         <td style="color:var(--text2)">${depuis}</td>
         <td style="color:var(--text2)">${idle}</td>

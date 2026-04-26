@@ -197,10 +197,13 @@ async def solo_start(req: Request):
     uuid  = body.get('uuid', '').strip()
     if not uuid:
         return {'ok': False}
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    name  = str(body.get('name', '') or '').strip()[:30]
+    now   = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     if uuid in _active_solo:
         solo_key = PL.solo_key(uuid)
         ST.record_abandon(solo_key)
+    if name:
+        PL.register(uuid, name)
     _active_solo[uuid] = {'started': now, 'last_seen': now, 'moves': 0}
     return {'ok': True}
 
