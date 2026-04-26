@@ -1,8 +1,20 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.10';
+const _VER_NET = '0.1.11';
 const _SESSION_KEY = 'crapka_session';
+const _UUID_KEY    = 'crapka_uuid';
+
+function getUUID() {
+  let id = localStorage.getItem(_UUID_KEY);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID()
+       : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+           (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+    localStorage.setItem(_UUID_KEY, id);
+  }
+  return id;
+}
 
 function _saveSession(roomCode, pidx, token) {
   localStorage.setItem(_SESSION_KEY, JSON.stringify({roomCode, pidx, token}));
@@ -109,7 +121,7 @@ function _netConnect(roomCode, playerName) {
   NET.ws = ws;
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({type:'set_name', name: playerName || 'Joueur'}));
+    ws.send(JSON.stringify({type:'set_name', name: playerName || 'Joueur', uuid: getUUID()}));
   };
   ws.onmessage = e => {
     try { _netOnMessage(JSON.parse(e.data)); }
@@ -251,6 +263,10 @@ function _netOnMessage(data) {
 
     case 'opponent_reconnected':
       setStatus('✓ ' + (data.name || 'Adversaire') + ' reconnecté !');
+      break;
+
+    case 'opponent_abandoned':
+      _netShowAbandonChoice(data.name || 'Ton adversaire');
       break;
 
     case 'error':
@@ -457,6 +473,31 @@ function _netShowUndoAsk(name, attempt) {
   no.style.background = 'var(--bg3)'; no.textContent = '✗ Non';
   no.onclick = () => { closeModal(); NET.ws.send(JSON.stringify({type: 'undo_response', accepted: false})); };
   el.appendChild(yes); el.appendChild(no);
+  document.getElementById('movl').classList.add('on');
+}
+
+// ── Abandon adverse ──────────────────────────────────────────────────────────
+
+function _netShowAbandonChoice(name) {
+  document.getElementById('mtitle').textContent = '🚪 ' + name + ' s\'est volatilisé·e';
+  document.getElementById('mbody').innerHTML =
+    '<p style="text-align:center;padding:8px 0;">Tu veux lui compter une défaite,<br>ou tu acceptes d\'abandonner aussi la partie ?</p>';
+  const el = document.getElementById('mbtns'); el.innerHTML = '';
+  const win = document.createElement('button'); win.className = 'btn';
+  win.textContent = '🏆 Lui compter une défaite';
+  win.onclick = () => {
+    closeModal();
+    if (NET.ws) NET.ws.send(JSON.stringify({type: 'abandon_response', accepted: false}));
+    setStatus('Victoire par abandon adverse !');
+  };
+  const abandon = document.createElement('button'); abandon.className = 'btn';
+  abandon.style.background = 'var(--bg3)'; abandon.textContent = '🤝 Abandonner aussi';
+  abandon.onclick = () => {
+    closeModal();
+    if (NET.ws) NET.ws.send(JSON.stringify({type: 'abandon_response', accepted: true}));
+    setStatus('Partie abandonnée.');
+  };
+  el.appendChild(win); el.appendChild(abandon);
   document.getElementById('movl').classList.add('on');
 }
 

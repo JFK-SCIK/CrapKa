@@ -294,18 +294,18 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 - Centraliser tous les textes dans un fichier i18n pour traduction
 - Préprod / blue-green deployment
 - Session reconnection après déconnexion réseau
-- UUIDs stables pour identité joueur
 
 ---
 
 ## Mode réseau (branch reseau-2j)
 
 ### Fichiers supplémentaires
-- `net.js` : gestion WebSocket, messages réseau, Oooops
+- `net.js` : gestion WebSocket, messages réseau, Oooops, abandon
 - `server/main.py` : FastAPI, WebSocket, routes REST
 - `server/rooms.py` : état des salles réseau
 - `server/game_logic.py` : règles serveur (copie Python de game.js)
 - `server/stats.py` : persistance stats.json + games.json
+- `server/players.py` : UUID→alias, clés stats
 - `server/admin.html` : interface d'administration web
 - `server/show_games.py` : script console historique parties
 - `server/show_stats.py` : script console statistiques
@@ -318,7 +318,8 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | `GET /health` | Healthcheck |
 | `GET /status` | Salles actives, joueurs connectés, phase, inactivité |
 | `GET /stats` | Statistiques par joueur (games/wins/losses/vs) |
-| `POST /stats/record` | Enregistrer une partie solo |
+| `POST /solo/start` | Démarrage partie solo (UUID) — abandon implicite si précédente non terminée |
+| `POST /solo/end` | Fin de partie solo (UUID, winner, loser) |
 | `GET /games?date=YYYY-MM-DD` | Historique parties (filtré ou complet) |
 | `GET /admin?pwd=…` | Interface d'administration web |
 | `WS /ws/{room_code}` | WebSocket jeu réseau |
@@ -330,7 +331,11 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 - Messages différenciés selon le numéro de tentative (joueur et adversaire)
 - `room.prev_state` = snapshot deepcopy avant le coup, effacé après undo ou 3ème refus
 
-### Identité joueur
-- `localStorage['crapka_name']` : nom persistant entre sessions
-- Solo : auto-génère `Joueur-XXXX` si absent (`getPlayerName()` dans game.js)
-- Réseau : nom saisi à la connexion, stocké en localStorage
+### Identité joueur (UUID)
+- `localStorage['crapka_uuid']` : UUID stable par navigateur (32 hex, `crypto.randomUUID`)
+- Alias d'affichage : 8 premiers hex du UUID (décalage de 8 en cas de collision)
+- Clé stats solo : `-(alias8)` ; réseau : `NomRéseau(alias8)`
+- Abandon implicite côté serveur : si nouvelle partie réseau reçue pour un UUID déjà actif dans une autre salle non terminée
+- Abandon explicite : l'adversaire restant choisit entre "victoire par défaut" ou "abandon mutuel" via une modale
+- Messages abandon : `opponent_abandoned` (serveur→client), `abandon_response` (client→serveur)
+- `server/players.py` : `register(uuid, name)`, `get_alias(uuid)`, `net_key(name, uuid)`, `solo_key(uuid)`

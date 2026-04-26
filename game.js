@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.2';
+const _VER_GAME='1.2.3';
 function getPlayerName(){
   let n=localStorage.getItem('crapka_name');
   if(!n){
@@ -108,6 +108,10 @@ function newGame(vsAI){
   addMoveLog(`${G.players[first].name} commence (${reason})`,'sys');
   render();setStatus(`${G.players[first].name} commence (${reason}) !`);showBtns();
   showStartModal(first, reason);
+  if (vsAI) {
+    fetch('/solo/start', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({uuid: getUUID()})}).catch(()=>{});
+  }
 }
 
 // Règle de mise en place : plus petite crapette → 1re carte de pile → 2e carte de pile → aléatoire

@@ -13,11 +13,17 @@ from fastapi.staticfiles import StaticFiles
 import rooms as R
 import game_logic as GL
 import stats as ST
+import players as PL
 
 ADMIN_PWD   = os.environ.get('CRAPKA_ADMIN_PWD', '')
 _DEPLOY_SH  = Path(__file__).parent.parent / 'deploy.sh'
 _DEPLOY_LOG = Path(__file__).parent / 'deploy.log'
 _deploy_task: asyncio.Task | None = None
+
+# uuid → room_code  (partie réseau active par navigateur)
+_uuid_room: dict[str, str] = {}
+# uuid → timestamp ISO (partie solo active par navigateur)
+_active_solo: dict[str, str] = {}
 
 
 def _check_admin(pwd: str):
@@ -147,6 +153,33 @@ async def deploy_wait_cancel(pwd: str = ''):
     return {'ok': True, 'pending': False}
 
 
+@app.post('/solo/start')
+async def solo_start(req: Request):
+    body  = await req.json()
+    uuid  = body.get('uuid', '').strip()
+    if not uuid:
+        return {'ok': False}
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    if uuid in _active_solo:
+        solo_key = PL.solo_key(uuid)
+        ST.record_abandon(solo_key)
+    _active_solo[uuid] = now
+    return {'ok': True}
+
+
+@app.post('/solo/end')
+async def solo_end(req: Request):
+    body   = await req.json()
+    uuid   = body.get('uuid', '').strip()
+    winner = body.get('winner', '').strip()
+    loser  = body.get('loser',  '').strip()
+    if uuid:
+        _active_solo.pop(uuid, None)
+    if winner and loser and winner != loser:
+        ST.record_game(winner, loser)
+    return {'ok': True}
+
+
 @app.post('/room')
 async def create_room():
     room = R.create_room()
@@ -248,6 +281,25 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
         if pidx == 1:
             await room.send_to(0, {'type': 'opponent_connected'})
         name = str(first.get('name', f'Joueur {pidx+1}'))[:30]
+        uuid = str(first.get('uuid', ''))[:64].strip()
+        if uuid:
+            PL.register(uuid, name)
+            old_code = _uuid_room.get(uuid)
+            if old_code and old_code != room_code:
+                old_room = R.get_room(old_code)
+                if old_room and old_room.G and old_room.G.get('phase') != 'game-over':
+                    try:
+                        old_pidx = old_room.uuids.index(uuid)
+                    except ValueError:
+                        old_pidx = -1
+                    if old_pidx >= 0:
+                        ST.record_abandon(PL.net_key(old_room.player_names[old_pidx], uuid))
+                        await old_room.send_to(1 - old_pidx, {
+                            'type': 'opponent_abandoned',
+                            'name': old_room.player_names[old_pidx],
+                        })
+            _uuid_room[uuid] = room_code
+            room.uuids[pidx] = uuid
         room.player_names[pidx] = name
         room.names_ready[pidx] = True
         if room.G:
@@ -317,6 +369,27 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                         await room.send_to(requester, {'type': 'undo_rejected', 'reason': 'refused'})
                 continue
 
+            if msg_type == 'abandon_response':
+                # pidx reçoit la question opponent_abandoned et choisit
+                accepted = data.get('accepted', False)
+                if room.G and room.G.get('phase') != 'game-over' and not room.stats_recorded:
+                    room.stats_recorded = True
+                    opp_idx = 1 - pidx
+                    if accepted:
+                        # les deux abandonnent
+                        ST.record_abandon(
+                            PL.net_key(room.player_names[pidx],     room.uuids[pidx]),
+                            PL.net_key(room.player_names[opp_idx], room.uuids[opp_idx]),
+                        )
+                    else:
+                        # l'adversaire parti perd, pidx gagne
+                        ST.record_game(
+                            PL.net_key(room.player_names[pidx],     room.uuids[pidx]),
+                            PL.net_key(room.player_names[opp_idx], room.uuids[opp_idx]),
+                        )
+                    R.save_room(room)
+                continue
+
             if msg_type == 'move':
                 if not room.G or room.G.get('phase') == 'game-over':
                     await ws.send_json({'type': 'error', 'reason': 'no_game', 'seq': data.get('seq')})
@@ -350,9 +423,10 @@ async def ws_endpoint(ws: WebSocket, room_code: str):
                 ):
                     room.stats_recorded = True
                     winner_idx = room.G['winner']
+                    loser_idx  = 1 - winner_idx
                     ST.record_game(
-                        room.player_names[winner_idx],
-                        room.player_names[1 - winner_idx],
+                        PL.net_key(room.player_names[winner_idx], room.uuids[winner_idx]),
+                        PL.net_key(room.player_names[loser_idx],  room.uuids[loser_idx]),
                     )
 
                 R.save_room(room)

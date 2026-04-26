@@ -23,6 +23,7 @@ class Room:
         self.player_names    = ['Joueur 1', 'Joueur 2']
         self.names_ready     = [False, False]
         self.tokens          = [None, None]   # token de session par slot
+        self.uuids           = [None, None]   # UUID navigateur par slot
         self.last_activity   = time.time()
         self.stats_recorded  = False
         self.prev_state      = None
@@ -69,6 +70,7 @@ def save_room(room: Room):
         'code':           room.code,
         'player_names':   room.player_names,
         'tokens':         room.tokens,
+        'uuids':          room.uuids,
         'names_ready':    room.names_ready,
         'G':              room.G,
         'prev_state':     room.prev_state,
@@ -99,6 +101,7 @@ def load_rooms():
             room = Room(data['code'])
             room.player_names   = data['player_names']
             room.tokens         = data['tokens']
+            room.uuids          = data.get('uuids', [None, None])
             room.names_ready    = data['names_ready']
             room.G              = data.get('G')
             room.prev_state     = data.get('prev_state')
