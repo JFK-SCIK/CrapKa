@@ -158,6 +158,7 @@ async def status():
             idle_min = elapsed_min = None
         solo.append({
             'name':        pname,
+            'uuid':        uuid,
             'started':     started,
             'idle_min':    idle_min,
             'elapsed_min': elapsed_min,
