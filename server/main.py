@@ -143,10 +143,21 @@ async def status():
             'phase':     room.G.get('phase') if room.G else None,
             'idle_min':  round((time.time() - room.last_activity) / 60, 1),
         })
+    now = time.time()
+    solo = []
+    for uuid, started in _active_solo.items():
+        alias = PL.get_alias(uuid) or uuid[:8]
+        try:
+            started_ts = time.mktime(time.strptime(started, '%Y-%m-%dT%H:%M:%SZ'))
+            elapsed_min = round((now - started_ts) / 60, 1)
+        except Exception:
+            elapsed_min = None
+        solo.append({'alias': alias, 'started': started, 'elapsed_min': elapsed_min})
     return {
         'rooms':          rooms,
         'count':          len(rooms),
         'pending_deploy': _deploy_task is not None and not _deploy_task.done(),
+        'solo_active':    solo,
     }
 
 
