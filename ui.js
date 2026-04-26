@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.32';
+const _VER_UI='1.2.33';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -482,6 +482,28 @@ function _buildVerBadge(){
   return '<span style="color:'+col+';font-weight:bold;cursor:default;" title="'+detail+'">'+lbl+' v'+maxVer+hash+'</span>';
 }
 
+function startSoloOrResume(){
+  const snap=loadDebugSnap();
+  if(snap&&snap.vsAI&&snap.phase!=='game-over'&&snap.winner==null){
+    showModal(
+      '🃏 Partie en cours',
+      'Tu veux reprendre la partie d\'avant ou tu étais tellement mal barré que tu préfères que je te laisse une chance avec une nouvelle partie ?',
+      [
+        {label:'↩ Reprendre',fn:()=>{
+          closeModal();
+          _restoreFromSnap(snap);
+          setStatus('Partie reprise.');
+          if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
+            setTimeout(aiPlayTurn,300);
+        }},
+        {label:'🎲 Nouvelle partie',fn:()=>{closeModal();newGame(true);}},
+      ]
+    );
+  } else {
+    newGame(true);
+  }
+}
+
 function renderMenu(){
   const _sess = _loadSession();
   const resumeBtn = _sess
@@ -499,7 +521,7 @@ function renderMenu(){
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:230px;">
         ${resumeBtn}
-        <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="newGame(true)">
+        <button class="btn" style="padding:13px;font-size:0.95rem;background:var(--bg3);" onclick="startSoloOrResume()">
           🤖 Contre l'IA
         </button>
         <button class="btn" style="padding:13px;font-size:0.95rem;" onclick="showNetCreatePanel()">
