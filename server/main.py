@@ -188,6 +188,13 @@ async def deploy_wait_start(pwd: str = ''):
     return {'ok': True, 'pending': True}
 
 
+@app.post('/admin/delete_stat')
+async def delete_stat(key: str, pwd: str = ''):
+    _check_admin(pwd)
+    ST.delete_player(key)
+    return {'ok': True}
+
+
 @app.delete('/deploy/wait')
 async def deploy_wait_cancel(pwd: str = ''):
     global _deploy_task

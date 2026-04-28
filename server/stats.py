@@ -96,6 +96,16 @@ def _log_game(winner: str, loser: str, status: str = 'finished'):
     _LOG_FILE.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
+def delete_player(key: str):
+    with _lock:
+        data = _load()
+        if key in data:
+            del data[key]
+            for p in data.values():
+                p['vs'].pop(key, None)
+            _save(data)
+
+
 def get_stats() -> dict:
     with _lock:
         return _load()

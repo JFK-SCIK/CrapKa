@@ -142,7 +142,11 @@ function displayName(key) {
   return m ? esc(m[1]) : esc(key);
 }
 function displayAlias(key) {
-  return _aliasOf(key) || '—';
+  const alias = _aliasOf(key);
+  if (alias) return alias;
+  // Clé sans format alias : chercher par last_name dans playersData
+  const entry = Object.values(_playersData).find(e => e.last_name === String(key));
+  return entry ? entry.alias : '—';
 }
 
 // ── Deploy ──────────────────────────────────────────────────────────────────
@@ -311,6 +315,12 @@ async function loadStatus() {
 
 // ── Stats ───────────────────────────────────────────────────────────────────
 
+async function deleteStat(name) {
+  if (!confirm('Supprimer "' + name + '" des statistiques ?')) return;
+  await fetch('/admin/delete_stat?pwd='+encodeURIComponent(PWD)+'&key='+encodeURIComponent(name), {method:'POST'});
+  await loadStats();
+}
+
 function togglePlayer(name) {
   if (_expanded.has(name)) _expanded.delete(name);
   else _expanded.add(name);
@@ -318,7 +328,11 @@ function togglePlayer(name) {
 }
 
 function renderStats(data) {
-  const players = Object.entries(data).sort((a,b) => b[1].games - a[1].games);
+  const players = Object.entries(data).sort((a,b) => {
+    if (a[0] === 'IA') return -1;
+    if (b[0] === 'IA') return 1;
+    return b[1].games - a[1].games;
+  });
   if (!players.length) {
     document.getElementById('stats-body').innerHTML = '<tr><td colspan="6" class="empty">Aucune statistique.</td></tr>';
     return;
@@ -332,7 +346,10 @@ function renderStats(data) {
       : `<span class="toggle"></span>`;
     const alias = displayAlias(name);
     html += `<tr class="row-player" data-name="${esc(name)}" onclick="togglePlayer(this.dataset.name)">
-      <td class="gold" style="padding-left:6px">${arrow} ${displayName(name)}</td>
+      <td class="gold" style="padding-left:6px">${arrow} ${displayName(name)}
+        <button onclick="event.stopPropagation();deleteStat('${esc(name)}')"
+          style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.75em;margin-left:6px;opacity:0.5;" title="Supprimer">✕</button>
+      </td>
       <td style="color:var(--text2);font-size:0.8em;font-family:monospace">${alias}</td>
       <td class="stats-num">${st.games}</td>
       <td class="stats-num win">${st.wins}</td>
