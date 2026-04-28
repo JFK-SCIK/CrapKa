@@ -575,7 +575,7 @@ function renderMenu(){
           🔗 Rejoindre une partie
         </button>
       </div>
-      <p style="font-size:0.65rem;text-align:center;cursor:pointer;padding:10px 0;" onclick="showVersionModal()">${_buildVerBadge()}</p>
+      <button onclick="showVersionModal()" style="background:none;border:none;cursor:pointer;font-size:0.65rem;color:inherit;padding:10px 0;width:100%;">${_buildVerBadge()}</button>
     </div>`;
 }
 
