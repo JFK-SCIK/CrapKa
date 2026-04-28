@@ -229,6 +229,9 @@ async def solo_ping(req: Request):
             _active_solo[uuid]['last_seen'] = now
             if moves is not None:
                 _active_solo[uuid]['moves'] = int(moves)
+        else:
+            _active_solo[uuid] = {'started': now, 'last_seen': now,
+                                  'moves': int(moves) if moves is not None else 0}
     return {'ok': True}
 
 

@@ -77,7 +77,6 @@ button.sec{background:var(--bg3);}
 <div class="section">
   <div class="section-hdr">
     <h2>📡 Statut serveur</h2>
-    <button class="sec" onclick="showPlayersPopup()">👥 Joueurs actifs</button>
   </div>
   <div class="cards" id="status-cards"></div>
   <div id="parties-wrap"></div>
@@ -88,12 +87,13 @@ button.sec{background:var(--bg3);}
   <table>
     <thead><tr>
       <th>Joueur</th>
+      <th>ID</th>
       <th class="num">Parties</th>
       <th class="num">Victoires</th>
       <th class="num">Défaites</th>
       <th class="num">%</th>
     </tr></thead>
-    <tbody id="stats-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+    <tbody id="stats-body"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
   </table>
 </div>
 
@@ -124,13 +124,25 @@ async function loadPlayers() {
   try { _playersData = await fetch('/players').then(r=>r.json()); } catch {}
 }
 
-function displayName(key) {
+function _aliasOf(key) {
   const m = String(key).match(/\(([a-f0-9]{8})\)$/);
-  if (!m) return esc(key);
-  const alias = m[1];
+  return m ? m[1] : null;
+}
+function _realName(key) {
+  const alias = _aliasOf(key);
+  if (!alias) return null;
   const entry = Object.values(_playersData).find(e => e.alias === alias);
-  const real = entry && entry.last_name ? entry.last_name : '';
-  return real ? `${esc(key)} <span style="color:var(--text2);font-size:0.8em">· ${esc(real)}</span>` : esc(key);
+  return (entry && entry.last_name) ? entry.last_name : null;
+}
+function displayName(key) {
+  const real = _realName(key);
+  if (real) return esc(real);
+  // Pas d'alias connu : afficher la partie nom avant la parenthèse si présente
+  const m = String(key).match(/^(.+)\([a-f0-9]{8}\)$/);
+  return m ? esc(m[1]) : esc(key);
+}
+function displayAlias(key) {
+  return _aliasOf(key) || '—';
 }
 
 // ── Deploy ──────────────────────────────────────────────────────────────────
@@ -308,7 +320,7 @@ function togglePlayer(name) {
 function renderStats(data) {
   const players = Object.entries(data).sort((a,b) => b[1].games - a[1].games);
   if (!players.length) {
-    document.getElementById('stats-body').innerHTML = '<tr><td colspan="5" class="empty">Aucune statistique.</td></tr>';
+    document.getElementById('stats-body').innerHTML = '<tr><td colspan="6" class="empty">Aucune statistique.</td></tr>';
     return;
   }
   let html = '';
@@ -318,8 +330,10 @@ function renderStats(data) {
     const arrow = vsEntries.length
       ? `<span class="toggle${exp ? ' open' : ''}">▶</span>`
       : `<span class="toggle"></span>`;
+    const alias = displayAlias(name);
     html += `<tr class="row-player" data-name="${esc(name)}" onclick="togglePlayer(this.dataset.name)">
       <td class="gold" style="padding-left:6px">${arrow} ${displayName(name)}</td>
+      <td style="color:var(--text2);font-size:0.8em;font-family:monospace">${alias}</td>
       <td class="stats-num">${st.games}</td>
       <td class="stats-num win">${st.wins}</td>
       <td class="stats-num lose">${st.losses}</td>
@@ -327,7 +341,8 @@ function renderStats(data) {
     </tr>`;
     for (const [opp, vs] of vsEntries) {
       html += `<tr class="vs"${exp ? '' : ' style="display:none"'}>
-        <td style="padding-left:28px">↳ vs ${esc(opp)}</td>
+        <td style="padding-left:28px">↳ vs ${displayName(opp)}</td>
+        <td style="color:var(--text2);font-size:0.8em;font-family:monospace">${displayAlias(opp)}</td>
         <td class="stats-num">${vs.games}</td>
         <td class="stats-num win">${vs.wins}</td>
         <td class="stats-num lose">${vs.losses}</td>
@@ -375,8 +390,8 @@ async function loadGames() {
         ? `<td style="color:var(--text2)">${displayName(g.winner)}</td>`
         : `<td class="win">${displayName(g.winner)}</td>`;
       const loserCell = isAbandoned
-        ? `<td style="color:var(--text2);font-style:italic">abandonné</td>`
-        : `<td class="lose">${displayName(g.loser)}</td>`;
+        ? `<td style="color:var(--text2);font-style:italic">—</td>`
+        : `<td class="lose">${g.loser === '?' ? '<span style="color:var(--text2)">?</span>' : displayName(g.loser)}</td>`;
       html += `<tr>
         <td style="color:var(--text2)">${day}</td>
         <td style="color:var(--text2)">${hour}</td>

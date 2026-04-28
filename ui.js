@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.34';
+const _VER_UI='1.2.35';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -537,6 +537,8 @@ function startSoloOrResume(){
           closeModal();
           _restoreFromSnap(snap);
           setStatus('Partie reprise.');
+          fetch('/solo/ping',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({uuid:getUUID(),name:getPlayerName(),moves:_moveCount||0})}).catch(()=>{});
           if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
             setTimeout(aiPlayTurn,300);
         }},
