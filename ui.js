@@ -479,7 +479,7 @@ function _buildVerBadge(){
   const col=mismatches.length===0?'#2ecc71':'#e74c3c';
   const lbl=mismatches.length===0?'OK':'KO';
   const hash=_gitHash?' ('+_gitHash+')':'';
-  return '<span style="color:'+col+';font-weight:bold;cursor:pointer;" title="'+detail+'" onclick="showVersionModal()">'+lbl+' v'+maxVer+hash+'</span>';
+  return '<span style="color:'+col+';font-weight:bold;" title="'+detail+'">'+lbl+' v'+maxVer+hash+'</span>';
 }
 
 function showVersionModal(){
@@ -575,7 +575,7 @@ function renderMenu(){
           🔗 Rejoindre une partie
         </button>
       </div>
-      <p style="font-size:0.65rem;text-align:center;">${_buildVerBadge()}</p>
+      <p style="font-size:0.65rem;text-align:center;cursor:pointer;padding:10px 0;" onclick="showVersionModal()">${_buildVerBadge()}</p>
     </div>`;
 }
 
