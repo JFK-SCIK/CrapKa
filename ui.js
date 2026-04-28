@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.33';
+const _VER_UI='1.2.34';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -479,7 +479,51 @@ function _buildVerBadge(){
   const col=mismatches.length===0?'#2ecc71':'#e74c3c';
   const lbl=mismatches.length===0?'OK':'KO';
   const hash=_gitHash?' ('+_gitHash+')':'';
-  return '<span style="color:'+col+';font-weight:bold;cursor:default;" title="'+detail+'">'+lbl+' v'+maxVer+hash+'</span>';
+  return '<span style="color:'+col+';font-weight:bold;cursor:pointer;" title="'+detail+'" onclick="showVersionModal()">'+lbl+' v'+maxVer+hash+'</span>';
+}
+
+function showVersionModal(){
+  const exp=window._EXPECTED||{};
+  const actual={game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP};
+  let rows='';
+  for(const [k,v] of Object.entries(actual)){
+    const ok=!exp[k]||v===exp[k];
+    rows+=`<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;">
+      <span style="color:var(--text2)">${k}</span>
+      <span style="color:${ok?'#2ecc71':'#e74c3c'}">${v}${ok?'':` <span style="font-size:0.8em;opacity:0.7">(attendu ${exp[k]})</span>`}</span>
+    </div>`;
+  }
+  const hashLine=_gitHash?`<div style="margin-top:10px;color:var(--text2);font-size:0.82em">Commit : ${_gitHash}</div>`:'';
+  document.getElementById('mtitle').textContent='📦 Versions';
+  document.getElementById('mbody').innerHTML=`<div style="font-size:0.88rem;text-align:left;min-width:200px">${rows}${hashLine}</div>`;
+  const el=document.getElementById('mbtns');el.innerHTML='';
+  const checkBtn=document.createElement('button');
+  checkBtn.className='btn';checkBtn.id='btn-check-updates';
+  checkBtn.textContent='🔄 Vérifier les mises à jour';
+  checkBtn.onclick=checkForUpdates;
+  el.appendChild(checkBtn);
+  const closeBtn=document.createElement('button');
+  closeBtn.className='btn';closeBtn.textContent='Fermer';
+  closeBtn.onclick=closeModal;
+  el.appendChild(closeBtn);
+  document.getElementById('movl').classList.add('on');
+}
+
+async function checkForUpdates(){
+  const btn=document.getElementById('btn-check-updates');
+  if(!btn) return;
+  btn.textContent='⏳ Vérification…';btn.disabled=true;
+  try{
+    const v=await fetch('/version?_='+Date.now()).then(r=>r.json());
+    if(v.hash&&_gitHash&&v.hash!==_gitHash){
+      btn.textContent='🆕 Mise à jour disponible ! Rechargement…';
+      setTimeout(()=>{window.location.href=window.location.pathname+'?_='+Date.now();},700);
+    } else {
+      btn.textContent='✅ Déjà à jour';btn.disabled=false;
+    }
+  } catch{
+    btn.textContent='❌ Pas de connexion';btn.disabled=false;
+  }
 }
 
 function startSoloOrResume(){

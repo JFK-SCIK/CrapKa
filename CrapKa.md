@@ -282,6 +282,7 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 | D3 | ✅ fait | `computeLayout` : taille calculée depuis la hauteur d'abord. Contrainte largeur = `(gameW−40)/6` : right-col empile défausses et main → max 5 cols + crapette = 6 cols. [v1.2.15] formule corrigée (était `(gameW−60)/10`, sous-estimait la taille possible). |
 | D4 | ✅ fait | Contrôles (slider, debug, boutons) déplacés sous le titre dans `#hdr-controls` ; `#hdr` passe en `flex-direction:column`. |
 | D5 | ✅ fait | Bouton 📖 dans le header + `showRules()` avec résumé des règles et crédits A&S. |
+| D11 | ✅ fait | **Vérification de mise à jour** — Clic sur le badge de version ouvre une modale avec le détail des composants et un bouton "Vérifier les mises à jour". Ce bouton compare le hash git du serveur avec celui chargé ; si différent, rechargement via `?_=timestamp` (contourne le cache sur tous les navigateurs, y compris mobile). [ui.js v1.2.34] |
 | D6 | ✅ fait | **Reprise partie solo** — À l'ouverture du menu, si `crapka_debug` (localStorage) contient une partie solo non terminée, `startSoloOrResume()` affiche une modale proposant de reprendre ou de démarrer une nouvelle partie. Si reprise : `_restoreFromSnap` + déclenchement IA si c'est son tour. [ui.js v1.2.33] |
 | D7 | ✅ fait | **Snapshot** — Copie directe dans le presse-papier + message bref "Snapshot terminé", sans modale. |
 | D8 | ✅ fait | Animation victoire : overlay `#victory-overlay` avec fade-in + scale-up CSS, 300ms après le game-over. `showMenu()` supprime l'overlay. |
