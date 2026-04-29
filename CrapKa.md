@@ -296,6 +296,57 @@ Les coups de pile non-crapette sont sous-classés : ceux qui rendent la crapette
 - Préprod / blue-green deployment
 - Session reconnection après déconnexion réseau
 
+### Synchronisation des règles (trois implémentations parallèles)
+Les règles du jeu existent en trois endroits distincts, sans partage de code :
+
+| Fichier | Usage | Style |
+|---|---|---|
+| `game.js` | Règles réelles — solo + réseau côté client | globals `G`/`UI`, side effects, animations |
+| `ai.js` (`_s*`) | Simulation BF — miroir paramétré de `game.js` | `(g, ui)` en arguments, pur, sans side effects |
+| `server/game_logic.py` | Validation serveur — parties réseau | Python, troisième implémentation indépendante |
+
+**État actuel** : les trois sont encore synchronisées (vérification faite, pas de divergence sémantique). La différence connue et intentionnelle : `_sDrawSafe` ne mélange pas au recyclage (sans effet sur la stratégie BF).
+
+**Risque** : toute modification de règle dans `game.js` doit être répercutée manuellement dans `_s*` et dans `game_logic.py`. Convention pour limiter le risque : commenter `// SYNC: game.js > <fonction>` au-dessus de chaque `_s*` concernée.
+
+**Mutualisation future** (chantier à part entière) : refactorer `game.js` pour accepter `(g, ui)` en paramètres rendrait `_s*` redondant. Non prioritaire tant qu'il n'y a pas de divergence avérée.
+
+### Profils IA multiples
+Architecture prévue : plusieurs personnalités IA sélectionnables par le joueur solo (ex. "Tibolos" = IA actuelle, "PatCartier" = heuristique retravaillée avec raisonnement "route vers la crapette", etc.).
+
+Découpage en fichiers :
+- `ai.js` → dispatcher + état animation + infrastructure partagée (`_s*`, state save/restore, move application)
+- `ai_tibolos.js` → stratégie Tibolos complète (BF, `_bfExpand`, `_eval`, `_aiDiscard`)
+- `ai_patcartier.js` → stratégie PatCartier (mêmes points d'entrée, logiques différentes)
+
+Chaque profil expose : `bruteForce`, `bfExpand`, `bfSortMoves`, `buildCrapettePath`, `eval`, `evalHandScore`, `evalBreakdown`, `aiDiscard`, `discardPriority`.
+Le nom du profil est stocké dans `UI.aiProfile` et affiché comme nom de l'adversaire IA.
+
+### Dataset pour IA neuronale
+Objectif futur : entraîner une **value network** (état → probabilité de victoire) pour remplacer `_eval()` dans un profil IA dédié. La value network se greffe sur le BF existant sans modifier le reste.
+
+**Génération du dataset** : faire jouer des profils IA l'un contre l'autre (Tibolos vs PatCartier) et enregistrer chaque partie.
+
+**Ce qu'il faut stocker par partie** :
+```json
+{
+  "game_id": "uuid", "ts": "...", "mode": "solo|net|ai_vs_ai",
+  "profiles": ["tibolos", null],
+  "winner": 0,
+  "moves": [
+    { "player": 0, "state": { /* état visible */ }, "move": { "type": "play", ... } }
+  ]
+}
+```
+
+**État visible par coup** (information réelle du joueur actif) : main (5 cartes), crapette top+taille, 4 défausses tops, crapette adverse top+taille, 4 défausses adverses tops, 4 piles communes top+taille, taille pioche+futurePioche, `demandMadeThisTurn`. Pas la main adverse ni le contenu de la pioche.
+
+**Volume estimé** : ~25 KB/partie en JSON lisible. 10 000 parties ≈ 250 MB — compatible avec le disque GCP.
+
+**Implémentation** : côté client, accumuler les moves dans un tableau pendant la partie et l'envoyer à `/solo/end`. Côté serveur (`main.py`), persister dans `server/game_logs/<game_id>.json`. Pour les parties réseau, le serveur voit déjà tous les coups via WebSocket (`_build_move_info`).
+
+**Remarque** : les parties humaines actuelles sont utiles comme signal de comportement réel, mais le gros du dataset viendra de la génération IA vs IA côté serveur.
+
 ---
 
 ## Mode réseau (branch reseau-2j)
