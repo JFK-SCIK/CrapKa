@@ -1,11 +1,11 @@
 #!/bin/bash
-# Installation du service préprod CrapKa sur la VM GCP
-# Prérequis : setup-gcp.sh déjà exécuté (venv, dépendances, service crapka prod installé)
-# Exécuter depuis le home directory (~)
+# Installation/mise à jour du service préprod CrapKa sur la VM GCP
+# Prérequis : setup-gcp.sh déjà exécuté (venv à ~/venv, service crapka prod installé)
+# Usage : cd ~/CrapKa && bash server/setup-preprod.sh
 
 set -e
 
-echo "=== 1. Service systemd crapka-preprod (port 8001) ==="
+echo "=== Service systemd crapka-preprod (port 8001) ==="
 sudo tee /etc/systemd/system/crapka-preprod.service > /dev/null <<EOF
 [Unit]
 Description=CrapKa FastAPI Server (préprod)
@@ -14,7 +14,7 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$HOME/CrapKa/server
-ExecStart=$HOME/CrapKa/server/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001
+ExecStart=$HOME/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=3
 Environment=CRAPKA_ADMIN_PWD=${CRAPKA_ADMIN_PWD:-}
@@ -28,35 +28,14 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable crapka-preprod
-sudo systemctl start crapka-preprod
+sudo systemctl restart crapka-preprod
 
 echo ""
-echo "=== 2. Firewall GCP — port 8001 ==="
-echo "Ouvrir dans la console GCP :"
-echo "  Compute Engine → Règles de pare-feu → Créer une règle"
-echo "  Nom : crapka-8001"
-echo "  Cible : Toutes les instances (ou balise http-server)"
-echo "  Plage IP source : 0.0.0.0/0"
-echo "  Port TCP : 8001"
-echo ""
-echo "  Ou via gcloud :"
-echo "  gcloud compute firewall-rules create crapka-8001 \\"
-echo "    --allow tcp:8001 --description='CrapKa preprod'"
-echo ""
-echo "=== 3. Caddy (si configuré) ==="
-echo "Ajouter dans /etc/caddy/Caddyfile :"
-echo "  crapka.duckdns.org:8001 {"
-echo "    reverse_proxy 127.0.0.1:8001"
-echo "  }"
-echo "  puis : sudo systemctl reload caddy"
-echo ""
-echo "=== 4. Vérification ==="
-echo "  sudo systemctl status crapka-preprod"
-echo "  curl http://localhost:8001/health"
-echo ""
-echo "✓ Service préprod installé."
+echo "✓ Service préprod installé/mis à jour."
 echo "  Accès : http://crapka.duckdns.org:8001"
 echo "  Admin : http://crapka.duckdns.org:8001/admin?pwd=..."
+echo "  Données : $HOME/CrapKa/server/preprod-data/ (isolées de la prod)"
 echo ""
-echo "  Note : stats.json et games.json sont partagés avec la prod."
-echo "  Pour des données isolées, créer ~/CrapKa/server-preprod/ et adapter les chemins."
+echo "  Vérification :"
+echo "  sudo systemctl status crapka-preprod"
+echo "  curl http://localhost:8001/health"
