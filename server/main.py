@@ -15,7 +15,9 @@ import game_logic as GL
 import stats as ST
 import players as PL
 
-ADMIN_PWD   = os.environ.get('CRAPKA_ADMIN_PWD', '')
+ADMIN_PWD      = os.environ.get('CRAPKA_ADMIN_PWD', '')
+CRAPKA_SERVICE = os.environ.get('CRAPKA_SERVICE', 'crapka')
+CRAPKA_BRANCH  = os.environ.get('CRAPKA_BRANCH',  'reseau-2j')
 _DEPLOY_SH  = Path(__file__).parent.parent / 'deploy.sh'
 _DEPLOY_LOG = Path(__file__).parent / 'deploy.log'
 _deploy_task: asyncio.Task | None = None
@@ -34,7 +36,7 @@ def _check_admin(pwd: str):
 def _launch_deploy():
     repo = str(Path(__file__).parent.parent)
     log = open(_DEPLOY_LOG, 'w')
-    script = f'cd {repo} && git pull origin reseau-2j && sudo systemctl restart crapka'
+    script = f'cd {repo} && git pull origin {CRAPKA_BRANCH} && sudo systemctl restart {CRAPKA_SERVICE}'
     # start_new_session=True détache le processus du cgroup du service.
     # systemctl restart envoie l'ordre à systemd avant que bash soit tué.
     subprocess.Popen(['bash', '-c', script], start_new_session=True,

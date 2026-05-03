@@ -262,6 +262,14 @@ body{
 /* SPEED */
 #speedrow{display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--text2);}
 #speedrow input{width:55px;}
+/* BADGE PRÉPROD */
+#preprod-badge{
+  position:fixed;top:6px;right:6px;
+  background:#f5813a;color:#fff;
+  font-size:0.62rem;font-weight:bold;letter-spacing:1px;
+  padding:2px 8px;border-radius:4px;z-index:9999;
+  font-family:sans-serif;pointer-events:none;
+}
 /* PORTRAIT MOBILE (D10) */
 @media (orientation:portrait) and (max-width:900px){
   #main{flex-direction:column;}

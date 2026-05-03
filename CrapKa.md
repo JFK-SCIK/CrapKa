@@ -361,8 +361,42 @@ Objectif futur : entraîner une **value network** (état → probabilité de vic
 - `server/admin.html` : interface d'administration web
 - `server/show_games.py` : script console historique parties
 - `server/show_stats.py` : script console statistiques
-- `deploy.sh` : déploiement GCP avec option --wait
+- `deploy.sh` : déploiement prod GCP avec option --wait
+- `deploy-preprod.sh` : déploiement préprod GCP (port 8001, service crapka-preprod)
+- `server/setup-preprod.sh` : installation du service systemd préprod sur la VM
 - `CrapKaMgt.sh` : menu interactif de gestion serveur
+
+### Architecture préprod / prod
+
+| Env | Port | Service systemd | Branch git | URL |
+|-----|------|----------------|------------|-----|
+| Prod | 8000 | `crapka` | `master` | `https://crapka.duckdns.org` |
+| Préprod | 8001 | `crapka-preprod` | `reseau-2j` | `http://crapka.duckdns.org:8001` |
+
+- Le frontend détecte le port 8001 et affiche un badge orange **PRÉPROD** (jeu + admin).
+- `net.js` construit l'URL WebSocket depuis `window.location.host` quand servi depuis GCP → aucune config supplémentaire.
+- Le bouton "Deploy" de l'admin redémarre le bon service via `CRAPKA_SERVICE` (env var du service systemd).
+- Les données (`stats.json`, `games.json`, `rooms/`) sont **partagées** entre prod et préprod.
+
+### Workflow promotion préprod → prod
+
+```bash
+# Tout promouvoir (merge complet)
+git checkout master && git merge reseau-2j && git push origin master
+# Sur la VM : ~/CrapKa/deploy.sh
+
+# Cherry-pick sélectif
+git checkout master
+git cherry-pick <hash>    # un commit précis
+git push origin master
+# Sur la VM : ~/CrapKa/deploy.sh
+```
+
+### Installation préprod sur la VM (une seule fois)
+```bash
+cd ~/CrapKa && bash server/setup-preprod.sh
+# Puis ouvrir le port 8001 dans la console GCP (voir instructions affichées)
+```
 
 ### Endpoints REST
 | Endpoint | Description |

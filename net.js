@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.11';
+const _VER_NET = '0.1.12';
 const _SESSION_KEY = 'crapka_session';
 const _UUID_KEY    = 'crapka_uuid';
 
@@ -27,11 +27,16 @@ function _loadSession() {
   catch { return null; }
 }
 
-// Serveur GCP — forcer local avec ?server=local (ex: localhost:8000)
-const _NET_WS   = new URLSearchParams(location.search).get('server') === 'local'
-                  ? `ws://${location.hostname}:8000`
-                  : 'wss://crapka.duckdns.org';
-const _NET_HTTP = _NET_WS.replace('wss://', 'https://').replace('ws://', 'http://');
+// URL WS : relative si servi depuis GCP (port automatique → marche en prod et préprod)
+// ?server=local pour dev local (localhost:8000)
+const _IS_LOCAL = new URLSearchParams(location.search).get('server') === 'local';
+const _IS_GCP   = ['crapka.duckdns.org', '35.184.245.186'].includes(location.hostname);
+const _NET_WS   = _IS_LOCAL
+                  ? 'ws://localhost:8000'
+                  : _IS_GCP
+                    ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
+                    : 'wss://crapka.duckdns.org';
+const _NET_HTTP = _NET_WS.replace(/^wss/, 'https').replace(/^ws/, 'http');
 
 const NET = {
   ws:               null,
