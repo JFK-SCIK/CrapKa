@@ -1,4 +1,5 @@
 import json
+import os
 import secrets
 import time
 import random
@@ -7,7 +8,8 @@ from typing import Optional
 from fastapi import WebSocket
 
 ROOM_TTL   = 4 * 3600   # 4h sans activité → supprimée
-_ROOMS_DIR = Path(__file__).parent / 'rooms'
+_DATA_DIR  = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
+_ROOMS_DIR = _DATA_DIR / 'rooms'
 
 _ADJECTIFS = ['ROUGE','BLEU','VERT','NOIR','BLANC','JAUNE','ROSE','GRIS','AZUR','OR']
 

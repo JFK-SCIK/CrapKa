@@ -20,6 +20,7 @@ RestartSec=3
 Environment=CRAPKA_ADMIN_PWD=${CRAPKA_ADMIN_PWD:-}
 Environment=CRAPKA_SERVICE=crapka-preprod
 Environment=CRAPKA_BRANCH=reseau-2j
+Environment=CRAPKA_DATA_DIR=$HOME/CrapKa/server/preprod-data
 
 [Install]
 WantedBy=multi-user.target

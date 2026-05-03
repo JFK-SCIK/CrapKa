@@ -53,7 +53,7 @@ button.sec{background:var(--bg3);}
 .modal-box h3{color:var(--gold);margin-bottom:14px;font-size:0.95rem;}
 .modal-close{position:absolute;top:10px;right:14px;background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer;padding:0;line-height:1;}
 .modal-close:hover{color:var(--text);}
-#preprod-badge{position:fixed;top:8px;right:8px;background:#f5813a;color:#fff;font-size:0.72rem;font-weight:bold;letter-spacing:1px;padding:2px 9px;border-radius:4px;z-index:9999;pointer-events:none;}
+#preprod-badge{display:inline-block;background:#f5813a;color:#fff;font-size:0.6rem;font-weight:bold;letter-spacing:1px;padding:2px 7px;border-radius:4px;vertical-align:middle;margin-left:8px;}
 </style>
 </head>
 <body>
@@ -468,10 +468,10 @@ async function refresh() {
 }
 
 if (location.port === '8001') {
-  const b = document.createElement('div');
+  const b = document.createElement('span');
   b.id = 'preprod-badge';
   b.textContent = 'PRÉPROD';
-  document.body.appendChild(b);
+  document.querySelector('h1').append(b);
 }
 loadVersion();
 refresh();

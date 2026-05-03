@@ -1,10 +1,13 @@
 import json
+import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-_STATS_FILE = Path(__file__).parent / 'stats.json'
-_LOG_FILE   = Path(__file__).parent / 'games.json'
+_DATA_DIR   = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_STATS_FILE = _DATA_DIR / 'stats.json'
+_LOG_FILE   = _DATA_DIR / 'games.json'
 _lock = threading.Lock()
 
 

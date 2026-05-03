@@ -1,8 +1,11 @@
 import json
+import os
 import threading
 from pathlib import Path
 
-_FILE = Path(__file__).parent / 'players.json'
+_DATA_DIR = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_FILE     = _DATA_DIR / 'players.json'
 _lock = threading.Lock()
 
 
