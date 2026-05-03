@@ -106,6 +106,18 @@ def delete_player(key: str):
             _save(data)
 
 
+def delete_game(ts: str):
+    with _lock:
+        if not _LOG_FILE.exists():
+            return
+        try:
+            log = json.loads(_LOG_FILE.read_text(encoding='utf-8'))
+        except Exception:
+            return
+        log = [g for g in log if g.get('ts') != ts]
+        _LOG_FILE.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
 def get_stats() -> dict:
     with _lock:
         return _load()

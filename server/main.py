@@ -195,6 +195,13 @@ async def delete_stat(key: str, pwd: str = ''):
     return {'ok': True}
 
 
+@app.post('/admin/delete_game')
+async def delete_game(ts: str, pwd: str = ''):
+    _check_admin(pwd)
+    ST.delete_game(ts)
+    return {'ok': True}
+
+
 @app.delete('/deploy/wait')
 async def deploy_wait_cancel(pwd: str = ''):
     global _deploy_task

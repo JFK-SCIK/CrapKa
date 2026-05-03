@@ -105,8 +105,8 @@ button.sec{background:var(--bg3);}
     <button class="sec" onclick="document.getElementById('date-filter').value='';loadGames()">Toutes</button>
   </div>
   <table>
-    <thead><tr><th>Date</th><th>Heure</th><th>Mode</th><th>Vainqueur 🏆</th><th>Perdant</th></tr></thead>
-    <tbody id="games-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+    <thead><tr><th>Date</th><th>Heure</th><th>Mode</th><th>Vainqueur 🏆</th><th>Perdant</th><th></th></tr></thead>
+    <tbody id="games-body"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
   </table>
 </div>
 
@@ -381,13 +381,19 @@ async function loadStats() {
 
 // ── Games ───────────────────────────────────────────────────────────────────
 
+async function deleteGame(ts) {
+  if (!confirm('Supprimer cette partie ?')) return;
+  await fetch('/admin/delete_game?pwd='+encodeURIComponent(PWD)+'&ts='+encodeURIComponent(ts), {method:'POST'});
+  await loadGames();
+}
+
 async function loadGames() {
   const date = document.getElementById('date-filter').value;
   try {
     const url = date ? `/games?date=${date}` : '/games';
     const games = await fetch(url).then(r=>r.json());
     if (!games.length) {
-      document.getElementById('games-body').innerHTML = '<tr><td colspan="5" class="empty">Aucune partie.</td></tr>';
+      document.getElementById('games-body').innerHTML = '<tr><td colspan="6" class="empty">Aucune partie.</td></tr>';
       return;
     }
     let html = '';
@@ -415,11 +421,13 @@ async function loadGames() {
         <td>${badge}</td>
         ${winnerCell}
         ${loserCell}
+        <td><button onclick="deleteGame('${esc(g.ts)}')"
+          style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.75em;opacity:0.5;" title="Supprimer">✕</button></td>
       </tr>`;
     }
     document.getElementById('games-body').innerHTML = html;
   } catch(e) {
-    document.getElementById('games-body').innerHTML = '<tr><td colspan="5" class="empty">Erreur.</td></tr>';
+    document.getElementById('games-body').innerHTML = '<tr><td colspan="6" class="empty">Erreur.</td></tr>';
   }
 }
 
@@ -451,7 +459,8 @@ async function loadVersion() {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function refresh() {
-  await Promise.all([loadPlayers(), loadStatus(), loadStats(), loadGames()]);
+  await Promise.all([loadPlayers(), loadStatus(), loadGames()]);
+  await loadStats();
   if (!_serverDown && !_fastPolling) {
     _setLbl('Actualisé à ' + new Date().toLocaleTimeString('fr-FR') + ' — rafraîchissement auto toutes les 30s');
   }
