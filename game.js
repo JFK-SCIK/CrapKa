@@ -48,9 +48,10 @@ let UI={
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
-function newGame(vsAI){
+function newGame(vsAI,aiDisplayName='Tibolos',aiProfileName='tibolos'){
   _uid=0;
   UI={sel:null,vtgts:[],vsAI,aiIdx:1,
+      aiProfile:aiProfileName,
       pileKingVal:[null,null,null,null],
       pileKingPending:[false,false,false,false],
       _lastKingInfo:null,
@@ -79,7 +80,7 @@ function newGame(vsAI){
   G={
     players:[
       {name:getPlayerName(),crapette:cr0,hand:h0,defausse:[[],[],[],[]]},
-      {name:vsAI?'IA':'Joueur 2',crapette:cr1,hand:h1,defausse:[[],[],[],[]]},
+      {name:vsAI?aiDisplayName:'Joueur 2',crapette:cr1,hand:h1,defausse:[[],[],[],[]]},
     ],
     commons:cm,
     pioche:shuffle([...reste0,...reste1]),

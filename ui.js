@@ -542,11 +542,11 @@ function startSoloOrResume(){
           if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
             setTimeout(aiPlayTurn,300);
         }},
-        {label:'🎲 Nouvelle partie',fn:()=>{closeModal();newGame(true);}},
+        {label:'🎲 Nouvelle partie',fn:()=>{closeModal();newGame(true,'Tibolos','tibolos');}},
       ]
     );
   } else {
-    newGame(true);
+    newGame(true,'Tibolos','tibolos');
   }
 }
 

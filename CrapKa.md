@@ -312,15 +312,18 @@ Les règles du jeu existent en trois endroits distincts, sans partage de code :
 **Mutualisation future** (chantier à part entière) : refactorer `game.js` pour accepter `(g, ui)` en paramètres rendrait `_s*` redondant. Non prioritaire tant qu'il n'y a pas de divergence avérée.
 
 ### Profils IA multiples
-Architecture prévue : plusieurs personnalités IA sélectionnables par le joueur solo (ex. "Tibolos" = IA actuelle, "PatCartier" = heuristique retravaillée avec raisonnement "route vers la crapette", etc.).
+**Implémenté (mai 2026)** — plusieurs personnalités IA sélectionnables par le joueur solo.
 
 Découpage en fichiers :
-- `ai.js` → dispatcher + état animation + infrastructure partagée (`_s*`, state save/restore, move application)
-- `ai_tibolos.js` → stratégie Tibolos complète (BF, `_bfExpand`, `_eval`, `_aiDiscard`)
-- `ai_patcartier.js` → stratégie PatCartier (mêmes points d'entrée, logiques différentes)
+- `ai.js` (v1.3.0) → dispatcher + état animation + infrastructure partagée (`_s*`, state save/restore, move application). Contient `const _AI_REGISTRY={}` rempli par les fichiers de profils.
+- `ai_tibolos.js` (v1.0.0) → stratégie Tibolos complète (BF, `_bfExpand`, `_eval`, `_aiDiscard`) — IA de référence, stratégie inchangée
+- `ai_patcartier.js` (v0.1.0) → stub délégant vers Tibolos, en attente d'heuristique "route vers la crapette"
 
-Chaque profil expose : `bruteForce`, `bfExpand`, `bfSortMoves`, `buildCrapettePath`, `eval`, `evalHandScore`, `evalBreakdown`, `aiDiscard`, `discardPriority`.
-Le nom du profil est stocké dans `UI.aiProfile` et affiché comme nom de l'adversaire IA.
+Chaque profil expose `{ name, bruteForce, aiDiscard }` et se déclare via `_AI_REGISTRY['clé']=AI_XXX`.
+Le profil actif est stocké dans `UI.aiProfile` (clé) et le nom affiché est `G.players[1].name` (ex. "Tibolos").
+`newGame(vsAI, aiDisplayName, aiProfileName)` — les deux nouveaux params ont des valeurs par défaut 'Tibolos'/'tibolos'.
+
+**Ordre de chargement** dans `index.html` : `game.js` → `ai.js` → `ai_tibolos.js` → `ai_patcartier.js` → `net.js` → `ui.js` → `app.js`.
 
 ### Dataset pour IA neuronale
 Objectif futur : entraîner une **value network** (état → probabilité de victoire) pour remplacer `_eval()` dans un profil IA dédié. La value network se greffe sur le BF existant sans modifier le reste.
