@@ -373,10 +373,10 @@ Objectif futur : entraîner une **value network** (état → probabilité de vic
 | Prod | 8000 | `crapka` | `master` | `https://crapka.duckdns.org` |
 | Préprod | 8001 | `crapka-preprod` | `reseau-2j` | `http://crapka.duckdns.org:8001` |
 
-- Le frontend détecte le port 8001 et affiche un badge orange **PRÉPROD** (jeu + admin).
+- Le frontend détecte le port 8001 et affiche un badge orange **PRÉPROD** inline dans le titre (jeu + admin).
 - `net.js` construit l'URL WebSocket depuis `window.location.host` quand servi depuis GCP → aucune config supplémentaire.
 - Le bouton "Deploy" de l'admin redémarre le bon service via `CRAPKA_SERVICE` (env var du service systemd).
-- Les données (`stats.json`, `games.json`, `rooms/`) sont **partagées** entre prod et préprod.
+- Les données (`stats.json`, `games.json`, `rooms/`, `players.json`) sont **isolées** : préprod écrit dans `~/CrapKa/server/preprod-data/`, prod dans `~/CrapKa/server/`.
 
 ### Workflow promotion préprod → prod
 
@@ -392,10 +392,12 @@ git push origin master
 # Sur la VM : ~/CrapKa/deploy.sh
 ```
 
-### Installation préprod sur la VM (une seule fois)
+### Installation/mise à jour préprod sur la VM
 ```bash
-cd ~/CrapKa && bash server/setup-preprod.sh
-# Puis ouvrir le port 8001 dans la console GCP (voir instructions affichées)
+# À chaque modification de setup-preprod.sh, ou lors de l'installation initiale :
+cd ~/CrapKa && git pull origin reseau-2j && bash server/setup-preprod.sh
+# Le script est idempotent — peut être relancé sans risque.
+# Port 8001 à ouvrir dans la console GCP (une seule fois, déjà fait).
 ```
 
 ### Endpoints REST
