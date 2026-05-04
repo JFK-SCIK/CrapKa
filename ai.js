@@ -641,3 +641,143 @@ function _sApply(g,ui,pidx,mv){
   }
   return {g:ng,ui:nui};
 }
+
+// ══════════════════════════════════════════════
+// UTILITAIRES PARTAGÉS — formatage et helpers BF
+// ══════════════════════════════════════════════
+
+function _fmtCV(card){ return card?( card.value==='10'?'T':card.value ):'?'; }
+
+function _fmtSrc(src){
+  if(!src) return 'Pio';
+  if(src.type==='crapette') return 'Cr';
+  if(src.type==='hand') return 'Ma';
+  if(src.type==='defausse') return 'Df'+(src.index+1);
+  return '?';
+}
+
+function _fmtMove(mv){
+  let s;
+  if(mv.type==='play')   s=_fmtCV(mv.card)+'('+_fmtSrc(mv.src)+')->P'+(mv.ci+1);
+  else if(mv.type==='clear')  s='P'+(mv.ci+1)+'->Rcy';
+  else if(mv.type==='init')   s=mv.src?_fmtCV(mv.card)+'('+_fmtSrc(mv.src)+')->P'+(mv.ci+1):'Pio->P'+(mv.ci+1);
+  else if(mv.type==='demand') s=_fmtCV(mv.card)+'(Dm'+(mv.defIdx+1)+')->P'+(mv.ci+1);
+  else if(mv.type==='end')    s=_fmtCV(mv.card)+'(Ma)->Df'+(mv.di+1);
+  else if(mv.type==='redraw'||mv.type==='pass') s='Pio->Ma';
+  else s=mv.type;
+  if((mv.type==='play'&&mv.src&&mv.src.type==='crapette')||
+     (mv.type==='init'&&!mv.card)) s+='*';
+  return s;
+}
+
+function _bfDedup(moves,p,g){
+  const seen=new Set();
+  const out=[];
+  for(const mv of moves){
+    let key;
+    if(mv.type==='play'&&mv.src&&mv.src.type==='hand'){
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      key='ph:'+mv.card.num+':'+(pileEmpty?'E':mv.ci);
+    } else if(mv.type==='play'&&mv.src&&mv.src.type==='defausse'){
+      const pileEmpty=g&&!g.commons[mv.ci].length;
+      key=pileEmpty?'pdf:'+mv.card.uid+':E':null;
+    } else if(mv.type==='end'){
+      const empty=p.defausse[mv.di].length===0;
+      key='end:'+mv.card.num+':'+(empty?'E':mv.di);
+    } else {
+      out.push(mv); continue;
+    }
+    if(key===null||!seen.has(key)){if(key)seen.add(key);out.push(mv);}
+  }
+  return out;
+}
+
+function _sCardAvailableForPath(g,ui,pidx,num){
+  const p=g.players[pidx];
+  if(p.hand.some(c=>c.num===num)) return true;
+  if(p.defausse.some(d=>d.length&&d[d.length-1].num===num)) return true;
+  if(p.defausse.some(d=>d.length>=2&&d[d.length-2].num===num)) return true;
+  if(!g.demandMadeThisTurn&&g.startDefSnap){
+    for(let di=0;di<4;di++){
+      const snap=g.startDefSnap[di];
+      if(snap&&snap.length&&snap[snap.length-1].num===num) return true;
+    }
+  }
+  return false;
+}
+
+function _applyMoveToState(g,ui,mv){
+  const pidx=g.cur;
+  if(mv.type==='clear'){
+    g.futurePioche.push(...g.commons[mv.ci]);
+    g.commons[mv.ci]=[];
+    ui.pileKingVal[mv.ci]=null;ui.pileKingPending[mv.ci]=false;
+    _animating=true;setTimeout(()=>{_animating=false;},200);
+  } else if(mv.type==='play'){
+    _sRemove(g,pidx,mv.card,mv.src);
+    g.commons[mv.ci].push(mv.card);
+    if(mv.card.num===13) _sResolveKing(g,ui,mv.ci);
+    else if(ui.pileKingPending[mv.ci]){ui.pileKingPending[mv.ci]=false;ui.pileKingVal[mv.ci]=mv.card.num-1;}
+    else{ui.pileKingVal[mv.ci]=null;ui.pileKingPending[mv.ci]=false;}
+    if(g.players[pidx].crapette.length===0){g.phase='game-over';g.winner=pidx;}
+  } else if(mv.type==='init'){
+    if(mv.card){
+      if(mv.src) _sRemove(g,g.cur,mv.card,mv.src);
+      g.commons[mv.ci].push(mv.card);
+      if(mv.card.num===13) _sResolveKing(g,ui,mv.ci);
+      else{ui.pileKingVal[mv.ci]=null;ui.pileKingPending[mv.ci]=false;}
+    } else {
+      if(!g.pioche.length&&g.futurePioche.length){g.pioche=g.futurePioche.splice(0);g.futurePioche=[];}
+      if(g.pioche.length){
+        const d=g.pioche.pop();
+        g.commons[mv.ci].push(d);
+        if(d.num===13) _sResolveKing(g,ui,mv.ci);
+        else{ui.pileKingVal[mv.ci]=null;ui.pileKingPending[mv.ci]=false;}
+      }
+    }
+  }
+}
+
+function _findAce(){
+  const p=G.players[G.cur];
+  const ct=peek(p.crapette);if(ct&&ct.num===1)return{card:ct,src:{type:'crapette'}};
+  const handAce=p.hand.find(c=>c.num===1);
+  let defAce=null,defAceIdx=-1;
+  for(let i=0;i<4;i++){const t=peek(p.defausse[i]);if(t&&t.num===1){defAce=t;defAceIdx=i;break;}}
+  if(handAce&&defAce){
+    const pile=p.defausse[defAceIdx];
+    const hidden=pile.length>=2?pile[pile.length-2]:null;
+    const hiddenUseful=hidden&&_handCardIsPlayable(hidden);
+    if(hiddenUseful) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
+    return{card:handAce,src:{type:'hand'}};
+  }
+  if(handAce) return{card:handAce,src:{type:'hand'}};
+  if(defAce) return{card:defAce,src:{type:'defausse',index:defAceIdx}};
+  return null;
+}
+
+function _handCardIsPlayable(card){
+  for(let ci=0;ci<4;ci++) if(canOnCommon(card,ci)) return true;
+  return false;
+}
+
+function _chainValsForPlayer(pidx){
+  const p=G.players[pidx];
+  const crT=peek(p.crapette);
+  if(!crT) return new Set();
+  const crNum=crT.num;
+  const target=(crNum-1+12)%12||12;
+  let minDist=12,bestTn=0;
+  for(let ci=0;ci<4;ci++){
+    const tn=topNum(ci);
+    if(tn>0&&tn<12){const dist=(target-tn+12)%12;if(dist<minDist){minDist=dist;bestTn=tn;}}
+  }
+  const vals=new Set();
+  if(minDist===0||minDist>=12) return vals;
+  const chainLen=Math.min(5,minDist);
+  for(let step=1;step<=chainLen;step++){
+    const v=((bestTn+step-1)%12)+1;
+    if(v!==crNum) vals.add(v);
+  }
+  return vals;
+}
