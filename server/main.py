@@ -196,12 +196,6 @@ async def get_ai_config():
     return AC.get_config()
 
 
-@app.post('/ai/register')
-async def register_ai(req: Request):
-    body = await req.json()
-    AC.register_profiles(body.get('profiles', []))
-    return {'ok': True}
-
 
 @app.post('/admin/ai_toggle')
 async def admin_ai_toggle(key: str, enabled: bool, pwd: str = ''):

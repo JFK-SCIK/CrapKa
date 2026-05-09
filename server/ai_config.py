@@ -3,9 +3,15 @@ import os
 import threading
 from pathlib import Path
 
-_DATA_DIR   = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
+_DATA_DIR    = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
 _CONFIG_FILE = _DATA_DIR / 'ai_config.json'
 _lock = threading.Lock()
+
+_DEFAULT_PROFILES = [
+    {'key': 'tibolos',    'name': 'Tibolos',    'enabled': True},
+    {'key': 'patcartier', 'name': 'PatCartier', 'enabled': True},
+    {'key': 'nomistek',   'name': 'Nomistek',   'enabled': True},
+]
 
 
 def _load() -> dict:
@@ -14,7 +20,7 @@ def _load() -> dict:
             return json.loads(_CONFIG_FILE.read_text(encoding='utf-8'))
         except Exception:
             pass
-    return {'profiles': []}
+    return {'profiles': [p.copy() for p in _DEFAULT_PROFILES]}
 
 
 def _save(data: dict):
@@ -26,21 +32,6 @@ def _save(data: dict):
 def get_config() -> dict:
     with _lock:
         return _load()
-
-
-def register_profiles(profiles: list):
-    """Ajoute les profils inconnus (enabled=True par défaut), ne touche pas les existants."""
-    with _lock:
-        data = _load()
-        existing = {p['key']: p for p in data['profiles']}
-        changed = False
-        for p in profiles:
-            if p['key'] not in existing:
-                existing[p['key']] = {'key': p['key'], 'name': p['name'], 'enabled': True}
-                changed = True
-        if changed:
-            data['profiles'] = list(existing.values())
-            _save(data)
 
 
 def toggle(key: str, enabled: bool) -> bool:
