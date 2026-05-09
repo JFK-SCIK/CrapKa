@@ -52,6 +52,7 @@ function newGame(vsAI,aiDisplayName='Tibolos',aiProfileName='tibolos'){
   _uid=0;
   UI={sel:null,vtgts:[],vsAI,aiIdx:1,
       aiProfile:aiProfileName,
+      serverSaveId:null,
       pileKingVal:[null,null,null,null],
       pileKingPending:[false,false,false,false],
       _lastKingInfo:null,
@@ -112,6 +113,10 @@ function newGame(vsAI,aiDisplayName='Tibolos',aiProfileName='tibolos'){
   if (vsAI) {
     fetch('/solo/start', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({uuid: getUUID(), name: getPlayerName()})}).catch(()=>{});
+    const initSnap = _buildUndoSnap();
+    fetch('/saves', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({snap: initSnap, ai_name: aiDisplayName})
+    }).then(r=>r.json()).then(d=>{if(d&&d.id) UI.serverSaveId=d.id;}).catch(()=>{});
   }
 }
 
@@ -620,6 +625,7 @@ function _buildUndoSnap(){
     kingVal:[...UI.pileKingVal],
     kingPend:[...UI.pileKingPending],
     vsAI:UI.vsAI,
+    aiProfile:UI.aiProfile||'tibolos',
     playerNames:G.players.map(p=>p.name),
   };
 }
@@ -657,6 +663,7 @@ function _restoreFromSnap(s){
   UI.pileKingVal=[...s.kingVal];
   UI.pileKingPending=[...s.kingPend];
   if(s.vsAI!==undefined) UI.vsAI=s.vsAI;
+  if(s.aiProfile!==undefined) UI.aiProfile=s.aiProfile;
   UI.sel=null;UI.vtgts=[];_animating=false;
   clearTimeout(_aiTimer);_aiMoves=[];
   _replayingAI=false;_stepResolve=null;

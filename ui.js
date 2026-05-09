@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.38';
+const _VER_UI='1.2.39';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -760,6 +760,11 @@ function _updateStepUI(){
   // Bouton exec trace download : visible si buffer non vide
   const betdl=document.getElementById('btn-etrace-dl');
   if(betdl) betdl.style.display=(_debugMode&&window._execTrace&&window._execTrace.length)?'inline-block':'none';
+  // Boutons saves serveur : visibles en mode debug
+  const bsrvsave=document.getElementById('btn-srv-save');
+  const bsrvload=document.getElementById('btn-srv-load');
+  if(bsrvsave) bsrvsave.style.display=_debugMode?'inline-block':'none';
+  if(bsrvload) bsrvload.style.display=_debugMode?'inline-block':'none';
 }
 
 function toggleBFSeqPin(){
@@ -1222,6 +1227,44 @@ function _esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+async function loadServerSaves(){
+  try{
+    const saves=await fetch('/saves').then(r=>r.json());
+    if(!saves.length){setStatus('Aucun save serveur disponible');return;}
+    const btns=saves.map(s=>({
+      label:(s.name||s.id).slice(0,34)+(s.ai_name?' ['+s.ai_name+']':''),
+      fn:async()=>{
+        closeModal();
+        try{
+          const data=await fetch('/saves/'+s.id).then(r=>r.json());
+          if(!data||!data.snap){setStatus('Erreur chargement save');return;}
+          _restoreFromSnap(data.snap);
+          setStatus('📂 Srv: '+s.name);
+          addMoveLog('📂 Srv load: '+s.name,'sys');
+          if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
+            setTimeout(aiPlayTurn,300);
+        }catch(e){setStatus('Erreur chargement: '+e.message);}
+      }
+    }));
+    btns.push({label:'← Fermer',fn:()=>closeModal()});
+    showModal('Saves serveur','',btns);
+  }catch(e){setStatus('Erreur: '+e.message);}
+}
+
+async function saveToServer(){
+  if(!G){setStatus('Pas de partie en cours');return;}
+  const name=prompt('Nom du save:','save-'+_localTs());
+  if(name===null)return;
+  const snap=_buildUndoSnap();
+  const aiName=UI.vsAI?G.players[UI.aiIdx].name:'';
+  try{
+    const r=await fetch('/saves',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({snap,ai_name:aiName,name:(name.trim()||('save-'+_localTs()))})}).then(r=>r.json());
+    if(r.ok){setStatus('💾 Srv: '+r.name);addMoveLog('💾 Srv: '+r.name,'sys');}
+    else setStatus('Erreur save serveur');
+  }catch(e){setStatus('Erreur: '+e.message);}
+}
+
 function showVictory(winnerIdx){
   if(!G) return;
   const existing=document.getElementById('victory-overlay');
@@ -1232,6 +1275,10 @@ function showVictory(winnerIdx){
     fetch('/solo/end',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({uuid:getUUID(),winner:w,loser:l,
         ai_name:UI.vsAI?G.players[UI.aiIdx].name:null})}).catch(()=>{});
+    if(UI.vsAI&&UI.serverSaveId){
+      fetch('/saves/'+UI.serverSaveId,{method:'DELETE'}).catch(()=>{});
+      UI.serverSaveId=null;
+    }
   }
   const humanWon=UI.netMode?(winnerIdx===UI.pidx):(!UI.vsAI||winnerIdx!==UI.aiIdx);
   const name=G.players[winnerIdx].name;

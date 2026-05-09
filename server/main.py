@@ -15,6 +15,7 @@ import game_logic as GL
 import stats as ST
 import players as PL
 import ai_config as AC
+import saves as SV
 
 ADMIN_PWD      = os.environ.get('CRAPKA_ADMIN_PWD', '')
 CRAPKA_SERVICE = os.environ.get('CRAPKA_SERVICE', 'crapka')
@@ -202,6 +203,48 @@ async def admin_ai_toggle(key: str, enabled: bool, pwd: str = ''):
     _check_admin(pwd)
     AC.toggle(key, enabled)
     return {'ok': True}
+
+
+@app.post('/saves')
+async def api_create_save(req: Request):
+    body = await req.json()
+    snap = body.get('snap')
+    if not snap:
+        return {'ok': False}
+    ai_name = str(body.get('ai_name') or 'IA')[:30]
+    name    = str(body.get('name')    or '')[:60].strip()
+    meta = SV.create(snap, ai_name, name)
+    return {'ok': True, **meta}
+
+
+@app.get('/saves')
+async def api_list_saves():
+    return SV.list_saves()
+
+
+@app.get('/saves/{save_id}')
+async def api_get_save(save_id: str):
+    data = SV.get(save_id)
+    if not data:
+        raise HTTPException(status_code=404, detail='Save non trouvé')
+    return data
+
+
+@app.delete('/saves/{save_id}')
+async def api_delete_save(save_id: str):
+    SV.delete(save_id)
+    return {'ok': True}
+
+
+@app.patch('/saves/{save_id}')
+async def api_rename_save(save_id: str, req: Request, pwd: str = ''):
+    _check_admin(pwd)
+    body = await req.json()
+    name = str(body.get('name') or '')[:60].strip()
+    if not name:
+        raise HTTPException(status_code=400, detail='Nom requis')
+    ok = SV.rename(save_id, name)
+    return {'ok': ok}
 
 
 @app.post('/admin/delete_stat')
