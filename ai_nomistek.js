@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.1.0';
+const _VER_AI_NOMISTEK='1.2.0';
 
 const AI_NOMISTEK=(()=>{
 
@@ -219,6 +219,26 @@ function _buildCrapettePath(g,ui,pidx){
   return pathNums.size>0?pathNums:null;
 }
 
+// Longueur de la route de l'adversaire (nombre d'Étapes jusqu'à sa crapette, crapette incluse).
+// La route est le chemin circulaire le plus court depuis le sommet de n'importe quelle pile
+// jusqu'à la crapette adverse. Ex : piles {8}, crapette=3 → 9 T V D As 2 3 = 7 Étapes.
+// Retourne 13 si indéterminé (Roi ou aucune pile valide).
+function _oppRouteLen(g,ui,aiIdx){
+  const oppIdx=1-aiIdx;
+  const opp=g.players[oppIdx];
+  if(!opp.crapette.length) return 0;
+  const oppCrT=opp.crapette[opp.crapette.length-1];
+  if(oppCrT.num===13) return 13;
+  let minDist=13;
+  for(let ci=0;ci<4;ci++){
+    const tn=_sTopNum(g,ui,ci);
+    if(tn===13) continue;
+    const dist=tn===0?oppCrT.num:(oppCrT.num-tn+12)%12;
+    if(dist>0&&dist<minDist) minDist=dist;
+  }
+  return minDist;
+}
+
 function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
   const crapette=moves.filter(m=>m.type==='play'&&m.src?.type==='crapette');
   const init    =moves.filter(m=>m.type==='init'||m.type==='clear');
@@ -252,6 +272,8 @@ function _bfExpand(seq,aiIdx){
   const pathNums=hasCrapettePath?_buildCrapettePath(g,ui,aiIdx):null;
   const deduped=_bfDedup(_bfSortMoves(lm,g,ui,aiIdx,pathNums),p,g);
   const BF_DISCOUNT=0.3;
+  const OPP_ROUTE_PENALTY=-15;
+  const oppRouteLenBefore=_oppRouteLen(g,ui,aiIdx);
   return deduped.map((mv,i)=>{
     const isCrapettePlay=mv.type==='play'&&mv.src&&mv.src.type==='crapette';
     const isPiocheDiscovery=(mv.type==='init'&&!mv.card)||mv.type==='redraw';
@@ -266,8 +288,10 @@ function _bfExpand(seq,aiIdx){
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
     const isDefPlay=mv.type==='play'&&mv.src?.type==='defausse';
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
+    // Pénalité si le coup raccourcit la route adverse sans jouer notre crapette ni vider la main
+    const oppRoutePenalty=(mv.type==='play'&&!isCrapettePlay&&!isOnPath&&!handEmptied&&!seq.crapettePlayed&&_oppRouteLen(ng,nui,aiIdx)<oppRouteLenBefore)?OPP_ROUTE_PENALTY:0;
     const discounted=(handPlayBonus+kingFromHandPenalty)*moveDiscount;
-    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+oppRoutePenalty;
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=mv.type==='redraw'?g:ng, evalUi=mv.type==='redraw'?ui:nui;
