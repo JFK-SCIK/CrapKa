@@ -119,7 +119,7 @@ button.sec{background:var(--bg3);}
     <button class="sec" onclick="document.getElementById('date-filter').value='';loadGames()">Toutes</button>
   </div>
   <table>
-    <thead><tr><th>Date</th><th>Heure</th><th>Mode</th><th>Vainqueur 🏆</th><th>Perdant</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Heure</th><th>Mode</th><th>Vainqueur 🏆</th><th>Perdant</th><th style="text-align:right;white-space:nowrap"><input type="checkbox" id="games-select-all" title="Tout sélectionner" onchange="document.querySelectorAll('.game-cb').forEach(cb=>cb.checked=this.checked)" style="cursor:pointer;vertical-align:middle"> <button onclick="deleteSelectedGames()" class="sec" style="font-size:0.75rem;padding:3px 8px">🗑 Supprimer</button></th></tr></thead>
     <tbody id="games-body"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
   </table>
 </div>
@@ -432,9 +432,14 @@ async function loadStats() {
 
 // ── Games ───────────────────────────────────────────────────────────────────
 
-async function deleteGame(ts) {
-  if (!confirm('Supprimer cette partie ?')) return;
-  await fetch('/admin/delete_game?pwd='+encodeURIComponent(PWD)+'&ts='+encodeURIComponent(ts), {method:'POST'});
+async function deleteSelectedGames() {
+  const cbs = [...document.querySelectorAll('.game-cb:checked')];
+  if (!cbs.length) return;
+  if (!confirm('Supprimer ' + cbs.length + ' partie(s) ?')) return;
+  for (const cb of cbs) {
+    await fetch('/admin/delete_game?pwd='+encodeURIComponent(PWD)+'&ts='+encodeURIComponent(cb.dataset.ts), {method:'POST'});
+  }
+  document.getElementById('games-select-all').checked = false;
   await loadGames();
 }
 
@@ -472,8 +477,7 @@ async function loadGames() {
         <td>${badge}</td>
         ${winnerCell}
         ${loserCell}
-        <td><button onclick="deleteGame('${esc(g.ts)}')"
-          style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.75em;opacity:0.5;" title="Supprimer">✕</button></td>
+        <td style="text-align:right"><input type="checkbox" class="game-cb" data-ts="${esc(g.ts)}" style="cursor:pointer"></td>
       </tr>`;
     }
     document.getElementById('games-body').innerHTML = html;

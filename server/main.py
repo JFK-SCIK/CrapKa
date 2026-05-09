@@ -608,10 +608,9 @@ async def admin_page(pwd: str = ''):
 
 @app.get('/games')
 async def get_games(date: str = ''):
-    log_file = Path(__file__).parent / 'games.json'
-    if not log_file.exists():
+    if not ST._LOG_FILE.exists():
         return []
-    games = json.loads(log_file.read_text(encoding='utf-8'))
+    games = json.loads(ST._LOG_FILE.read_text(encoding='utf-8'))
     if date:
         games = [g for g in games if g['ts'].startswith(date)]
     return games
