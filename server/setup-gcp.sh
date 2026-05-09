@@ -21,10 +21,8 @@ else
 fi
 
 echo "=== 4. Setup environnement Python ==="
-cd CrapKa/server
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv ~/venv
+~/venv/bin/pip install -r ~/CrapKa/server/requirements.txt
 
 echo "=== 5. Installation Caddy (reverse proxy HTTPS) ==="
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
@@ -41,9 +39,12 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$HOME/CrapKa/server
-ExecStart=$HOME/CrapKa/server/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+ExecStart=$HOME/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=3
+Environment=CRAPKA_ADMIN_PWD=${CRAPKA_ADMIN_PWD:-}
+Environment=CRAPKA_SERVICE=crapka
+Environment=CRAPKA_BRANCH=reseau-2j
 
 [Install]
 WantedBy=multi-user.target
@@ -52,6 +53,11 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable crapka
 sudo systemctl start crapka
+
+echo "=== 7. Sudoers — deploy sans mot de passe ==="
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart crapka, /usr/bin/systemctl restart crapka-preprod" \
+  | sudo tee /etc/sudoers.d/crapka-deploy > /dev/null
+sudo chmod 440 /etc/sudoers.d/crapka-deploy
 
 echo "=== Terminé ! ==="
 echo "FastAPI tourne sur 127.0.0.1:8000"

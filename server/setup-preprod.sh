@@ -30,6 +30,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable crapka-preprod
 sudo systemctl restart crapka-preprod
 
+echo "=== Sudoers — deploy sans mot de passe ==="
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart crapka, /usr/bin/systemctl restart crapka-preprod" \
+  | sudo tee /etc/sudoers.d/crapka-deploy > /dev/null
+sudo chmod 440 /etc/sudoers.d/crapka-deploy
+
 echo ""
 echo "✓ Service préprod installé/mis à jour."
 echo "  Accès : http://crapka.duckdns.org:8001"
