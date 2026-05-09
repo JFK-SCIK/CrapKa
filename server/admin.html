@@ -300,11 +300,15 @@ async function loadStatus() {
       </tr>`);
     }
     for (const r of _lastRooms) {
+      const suspended = r.phase && r.phase !== 'game-over' && r.connected.every(c => !c);
       const names = r.players.map((n,i) => r.connected[i] ? `<b>${esc(n)}</b>` : esc(n)).join(' <span style="color:var(--text2)">vs</span> ');
-      rows.push(`<tr>
+      const phaseCell = suspended
+        ? `<span style="color:#f5813a;font-weight:bold">⏸ En suspens</span>`
+        : `<span style="color:var(--text2)">${r.phase||'—'}</span>`;
+      rows.push(`<tr${suspended ? ' style="opacity:0.75"' : ''}>
         <td class="gold">${esc(r.code)}</td>
         <td>${names}</td>
-        <td style="color:var(--text2)">${r.phase||'—'}</td>
+        <td>${phaseCell}</td>
         <td style="color:var(--text2)">—</td>
         <td style="color:var(--text2)">${r.idle_min} min</td>
         <td class="stats-num">—</td>

@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // NET — Client WebSocket mode réseau
 // ══════════════════════════════════════════════
-const _VER_NET = '0.1.12';
+const _VER_NET = '0.1.13';
 const _SESSION_KEY = 'crapka_session';
 const _UUID_KEY    = 'crapka_uuid';
 
@@ -53,6 +53,7 @@ const NET = {
 // ── API publique ─────────────────────────────────────────────────────────────
 
 async function netCreateRoom(playerName) {
+  _clearSession();
   try {
     if (playerName) localStorage.setItem('crapka_name', playerName);
     const resp = await fetch(`${_NET_HTTP}/room`, {method: 'POST'});
@@ -66,6 +67,7 @@ async function netCreateRoom(playerName) {
 }
 
 function netJoinRoom(roomCode, playerName) {
+  _clearSession();
   if (playerName) localStorage.setItem('crapka_name', playerName);
   NET.roomCode = roomCode.toUpperCase().trim();
   _netConnect(NET.roomCode, playerName);

@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // CONSTANTES
 // ══════════════════════════════════════════════
-const _VER_GAME='1.2.7';
+const _VER_GAME='1.2.8';
 function getPlayerName(){
   let n=localStorage.getItem('crapka_name');
   if(!n){
@@ -49,6 +49,7 @@ let UI={
 // INIT
 // ══════════════════════════════════════════════
 function newGame(vsAI,aiDisplayName='Tibolos',aiProfileName='tibolos'){
+  try{localStorage.removeItem('crapka_debug');}catch(e){}
   _uid=0;
   UI={sel:null,vtgts:[],vsAI,aiIdx:1,
       aiProfile:aiProfileName,
