@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.39';
+const _VER_UI='1.2.40';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1279,6 +1279,7 @@ function showVictory(winnerIdx){
       fetch('/saves/'+UI.serverSaveId,{method:'DELETE'}).catch(()=>{});
       UI.serverSaveId=null;
     }
+    try{localStorage.removeItem('crapka_debug');}catch(e){}
   }
   const humanWon=UI.netMode?(winnerIdx===UI.pidx):(!UI.vsAI||winnerIdx!==UI.aiIdx);
   const name=G.players[winnerIdx].name;
