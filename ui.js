@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.37';
+const _VER_UI='1.2.38';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -1230,7 +1230,8 @@ function showVictory(winnerIdx){
     const w=G.players[G.winner].name;
     const l=G.players[1-G.winner].name;
     fetch('/solo/end',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({uuid:getUUID(),winner:w,loser:l})}).catch(()=>{});
+      body:JSON.stringify({uuid:getUUID(),winner:w,loser:l,
+        ai_name:UI.vsAI?G.players[UI.aiIdx].name:null})}).catch(()=>{});
   }
   const humanWon=UI.netMode?(winnerIdx===UI.pidx):(!UI.vsAI||winnerIdx!==UI.aiIdx);
   const name=G.players[winnerIdx].name;
