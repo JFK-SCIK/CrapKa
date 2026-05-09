@@ -15,12 +15,16 @@ _DEFAULT_PROFILES = [
 
 
 def _load() -> dict:
+    on_disk = {}
     if _CONFIG_FILE.exists():
         try:
-            return json.loads(_CONFIG_FILE.read_text(encoding='utf-8'))
+            data = json.loads(_CONFIG_FILE.read_text(encoding='utf-8'))
+            on_disk = {p['key']: p for p in data.get('profiles', [])}
         except Exception:
             pass
-    return {'profiles': [p.copy() for p in _DEFAULT_PROFILES]}
+    # Toujours retourner au moins les defaults ; on_disk prime sur les clés connues
+    profiles = [on_disk.get(d['key'], d.copy()) for d in _DEFAULT_PROFILES]
+    return {'profiles': profiles}
 
 
 def _save(data: dict):

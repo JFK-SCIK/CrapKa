@@ -382,7 +382,7 @@ async function loadAIConfig() {
     const profiles = cfg.profiles || [];
     const el = document.getElementById('ai-profiles-list');
     if (!profiles.length) {
-      el.innerHTML = '<span class="empty">Aucun profil enregistré — lancez une partie pour les détecter.</span>';
+      el.innerHTML = '<span class="empty">Aucun profil disponible.</span>';
       return;
     }
     el.innerHTML = profiles.map(p=>`
