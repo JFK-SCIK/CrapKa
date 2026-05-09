@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.35';
+const _VER_UI='1.2.36';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -526,6 +526,12 @@ async function checkForUpdates(){
   }
 }
 
+function _pickAI(onPick){
+  const profiles=Object.entries(_AI_REGISTRY);
+  const btns=profiles.map(([key,p])=>({label:p.name,fn:()=>{closeModal();onPick(key,p.name);}}));
+  showModal('Choisir un adversaire','Quelle IA veux-tu affronter ?',btns);
+}
+
 function startSoloOrResume(){
   const snap=loadDebugSnap();
   if(snap&&snap.vsAI&&snap.phase!=='game-over'&&snap.winner==null){
@@ -542,11 +548,11 @@ function startSoloOrResume(){
           if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
             setTimeout(aiPlayTurn,300);
         }},
-        {label:'🎲 Nouvelle partie',fn:()=>{closeModal();newGame(true,'Tibolos','tibolos');}},
+        {label:'🎲 Nouvelle partie',fn:()=>_pickAI((key,name)=>newGame(true,name,key))},
       ]
     );
   } else {
-    newGame(true,'Tibolos','tibolos');
+    _pickAI((key,name)=>newGame(true,name,key));
   }
 }
 
