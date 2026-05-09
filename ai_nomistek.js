@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.3.0';
+const _VER_AI_NOMISTEK='1.4.0';
 
 const AI_NOMISTEK=(()=>{
 
@@ -290,8 +290,10 @@ function _bfExpand(seq,aiIdx){
     const defVsHandPenalty=isDefPlay&&p.hand.some(c=>c.num===mv.card.num)?-8:0;
     // Pénalité si le coup raccourcit la route adverse sans jouer notre crapette ni vider la main
     const oppRoutePenalty=(mv.type==='play'&&!isCrapettePlay&&!isOnPath&&!handEmptied&&!seq.crapettePlayed&&_oppRouteLen(ng,nui,aiIdx)<oppRouteLenBefore)?OPP_ROUTE_PENALTY:0;
+    // Pénalité de délai : chaque coup non-chemin joué avant la crapette coûte -1 → D-first score mieux que T-first
+    const preCrapetteDelay=(!isDiscovery&&seq.triggerIdx===-1&&hasCrapettePath&&!isOnPath)?-1:0;
     const discounted=(handPlayBonus+kingFromHandPenalty)*moveDiscount;
-    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+oppRoutePenalty;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+oppRoutePenalty+preCrapetteDelay;
     const newPostKey=seq.postKey||isCrapettePlay||isEmptyPilePlay;
     const willTerminate=mv.type==='end'||isPiocheDiscovery;
     const evalG=mv.type==='redraw'?g:ng, evalUi=mv.type==='redraw'?ui:nui;
