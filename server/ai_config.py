@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -38,7 +39,7 @@ def _save(data: dict):
 
 def _js_info(key: str) -> dict:
     js_file = _JS_DIR / f'ai_{key}.js'
-    info = {'version': None, 'updated': None}
+    info = {'version': None, 'updated': None, 'git_hash': None, 'git_msg': None}
     if not js_file.exists():
         return info
     try:
@@ -48,6 +49,17 @@ def _js_info(key: str) -> dict:
             info['version'] = m.group(1)
         mtime = js_file.stat().st_mtime
         info['updated'] = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M')
+    except Exception:
+        pass
+    try:
+        log = subprocess.check_output(
+            ['git', '-C', str(_JS_DIR), 'log', '-1', '--format=%h|%s', '--', f'ai_{key}.js'],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if log:
+            parts = log.split('|', 1)
+            info['git_hash'] = parts[0]
+            info['git_msg']  = parts[1] if len(parts) > 1 else ''
     except Exception:
         pass
     return info
