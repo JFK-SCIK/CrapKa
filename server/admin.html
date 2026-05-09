@@ -84,6 +84,11 @@ button.sec{background:var(--bg3);}
 </div>
 
 <div class="section">
+  <h2>🤖 Profils IA</h2>
+  <div id="ai-profiles-list"><span class="empty">Chargement…</span></div>
+</div>
+
+<div class="section">
   <h2>📊 Statistiques</h2>
   <table>
     <thead><tr>
@@ -371,6 +376,34 @@ function renderStats(data) {
   document.getElementById('stats-body').innerHTML = html;
 }
 
+async function loadAIConfig() {
+  try {
+    const cfg = await fetch('/ai/config').then(r=>r.json());
+    const profiles = cfg.profiles || [];
+    const el = document.getElementById('ai-profiles-list');
+    if (!profiles.length) {
+      el.innerHTML = '<span class="empty">Aucun profil enregistré — lancez une partie pour les détecter.</span>';
+      return;
+    }
+    el.innerHTML = profiles.map(p=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--bg3);">
+        <input type="checkbox" id="ai-cb-${esc(p.key)}" ${p.enabled?'checked':''} onchange="toggleAI('${esc(p.key)}',this.checked)" style="width:16px;height:16px;cursor:pointer;">
+        <label for="ai-cb-${esc(p.key)}" style="cursor:pointer;font-weight:bold;min-width:90px;">${esc(p.name)}</label>
+        <span style="color:var(--text2);font-size:0.78rem;">${esc(p.key)}</span>
+        <span style="margin-left:auto;font-size:0.78rem;color:${p.enabled?'var(--green)':'var(--accent)'};">${p.enabled?'Actif':'Désactivé'}</span>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('ai-profiles-list').innerHTML = '<span class="empty">Erreur de chargement.</span>';
+  }
+}
+
+async function toggleAI(key, enabled) {
+  try {
+    await fetch(`/admin/ai_toggle?key=${encodeURIComponent(key)}&enabled=${enabled}&pwd=${encodeURIComponent(PWD)}`,{method:'POST'});
+    await loadAIConfig();
+  } catch(e) {}
+}
+
 async function loadStats() {
   try {
     _lastStats = await fetch('/stats').then(r=>r.json());
@@ -460,7 +493,7 @@ async function loadVersion() {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function refresh() {
-  await Promise.all([loadPlayers(), loadStatus(), loadGames()]);
+  await Promise.all([loadPlayers(), loadStatus(), loadGames(), loadAIConfig()]);
   await loadStats();
   if (!_serverDown && !_fastPolling) {
     _setLbl('Actualisé à ' + new Date().toLocaleTimeString('fr-FR') + ' — rafraîchissement auto toutes les 30s');

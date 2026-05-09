@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.36';
+const _VER_UI='1.2.37';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -527,8 +527,10 @@ async function checkForUpdates(){
 }
 
 function _pickAI(onPick){
-  const profiles=Object.entries(_AI_REGISTRY);
+  const profiles=Object.entries(_AI_REGISTRY)
+    .filter(([key])=>!window._AI_CONFIG||window._AI_CONFIG[key]!==false);
   const btns=profiles.map(([key,p])=>({label:p.name,fn:()=>{closeModal();onPick(key,p.name);}}));
+  btns.push({label:'← Retour',fn:()=>closeModal()});
   showModal('Choisir un adversaire','Quelle IA veux-tu affronter ?',btns);
 }
 

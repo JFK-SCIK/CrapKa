@@ -14,6 +14,7 @@ import rooms as R
 import game_logic as GL
 import stats as ST
 import players as PL
+import ai_config as AC
 
 ADMIN_PWD      = os.environ.get('CRAPKA_ADMIN_PWD', '')
 CRAPKA_SERVICE = os.environ.get('CRAPKA_SERVICE', 'crapka')
@@ -188,6 +189,25 @@ async def deploy_wait_start(pwd: str = ''):
     if _deploy_task is None or _deploy_task.done():
         _deploy_task = asyncio.create_task(_wait_and_deploy())
     return {'ok': True, 'pending': True}
+
+
+@app.get('/ai/config')
+async def get_ai_config():
+    return AC.get_config()
+
+
+@app.post('/ai/register')
+async def register_ai(req: Request):
+    body = await req.json()
+    AC.register_profiles(body.get('profiles', []))
+    return {'ok': True}
+
+
+@app.post('/admin/ai_toggle')
+async def admin_ai_toggle(key: str, enabled: bool, pwd: str = ''):
+    _check_admin(pwd)
+    AC.toggle(key, enabled)
+    return {'ok': True}
 
 
 @app.post('/admin/delete_stat')
