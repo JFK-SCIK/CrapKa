@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.2.0';
+const _VER_AI_NOMISTEK='1.3.0';
 
 const AI_NOMISTEK=(()=>{
 
@@ -355,7 +355,10 @@ function _bruteForce(){
   }
   let best=null;
   for(const seq of terminated){
-    if(best===null||seq.score>best.score||(seq.score===best.score&&seq.moves.length<best.moves.length))
+    if(!best||seq.score>best.score
+      ||(seq.score===best.score&&seq.moves.length<best.moves.length)
+      ||(seq.score===best.score&&seq.moves.length===best.moves.length
+         &&seq.triggerIdx>=0&&(best.triggerIdx<0||seq.triggerIdx<best.triggerIdx)))
       best=seq;
   }
   const sortedTerm=terminated.sort((a,b)=>b.score-a.score||a.moves.length-b.moves.length);
