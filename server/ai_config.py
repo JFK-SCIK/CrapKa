@@ -1,10 +1,13 @@
 import json
 import os
+import re
 import threading
+from datetime import datetime
 from pathlib import Path
 
 _DATA_DIR    = Path(os.environ.get('CRAPKA_DATA_DIR', str(Path(__file__).parent)))
 _CONFIG_FILE = _DATA_DIR / 'ai_config.json'
+_JS_DIR      = Path(__file__).parent.parent   # racine du repo
 _lock = threading.Lock()
 
 _DEFAULT_PROFILES = [
@@ -33,9 +36,29 @@ def _save(data: dict):
     )
 
 
+def _js_info(key: str) -> dict:
+    js_file = _JS_DIR / f'ai_{key}.js'
+    info = {'version': None, 'updated': None}
+    if not js_file.exists():
+        return info
+    try:
+        content = js_file.read_text(encoding='utf-8', errors='replace')
+        m = re.search(r"const _VER_AI_\w+='([^']+)'", content)
+        if m:
+            info['version'] = m.group(1)
+        mtime = js_file.stat().st_mtime
+        info['updated'] = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M')
+    except Exception:
+        pass
+    return info
+
+
 def get_config() -> dict:
     with _lock:
-        return _load()
+        data = _load()
+        for p in data['profiles']:
+            p.update(_js_info(p['key']))
+        return data
 
 
 def toggle(key: str, enabled: bool) -> bool:

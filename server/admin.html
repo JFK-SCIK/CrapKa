@@ -389,7 +389,9 @@ async function loadAIConfig() {
       <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--bg3);">
         <input type="checkbox" id="ai-cb-${esc(p.key)}" ${p.enabled?'checked':''} onchange="toggleAI('${esc(p.key)}',this.checked)" style="width:16px;height:16px;cursor:pointer;">
         <label for="ai-cb-${esc(p.key)}" style="cursor:pointer;font-weight:bold;min-width:90px;">${esc(p.name)}</label>
-        <span style="color:var(--text2);font-size:0.78rem;">${esc(p.key)}</span>
+        <span style="color:var(--text2);font-size:0.78rem;min-width:70px;">${esc(p.key)}</span>
+        <span style="font-family:monospace;font-size:0.78rem;color:var(--gold);">${p.version?'v'+esc(p.version):'—'}</span>
+        <span style="color:var(--text2);font-size:0.78rem;">${p.updated?esc(p.updated):'—'}</span>
         <span style="margin-left:auto;font-size:0.78rem;color:${p.enabled?'var(--green)':'var(--accent)'};">${p.enabled?'Actif':'Désactivé'}</span>
       </div>`).join('');
   } catch(e) {
