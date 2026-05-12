@@ -261,6 +261,13 @@ async def api_rename_save(save_id: str, req: Request, pwd: str = ''):
     return {'ok': ok}
 
 
+@app.post('/admin/rebuild_stats')
+async def rebuild_stats(pwd: str = ''):
+    _check_admin(pwd)
+    data = ST.rebuild_from_log()
+    return {'ok': True, 'players': len(data)}
+
+
 @app.post('/admin/delete_stat')
 async def delete_stat(key: str, pwd: str = ''):
     _check_admin(pwd)

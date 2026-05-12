@@ -121,6 +121,58 @@ def delete_game(ts: str):
         _LOG_FILE.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
+def rebuild_from_log() -> dict:
+    """Recalcule stats.json depuis games.json (source de vérité)."""
+    with _lock:
+        if not _LOG_FILE.exists():
+            _save({})
+            return {}
+        try:
+            log = json.loads(_LOG_FILE.read_text(encoding='utf-8'))
+        except Exception:
+            return {}
+
+        data: dict = {}
+
+        def _ens(key):
+            if key not in data:
+                data[key] = {'games': 0, 'wins': 0, 'losses': 0, 'abandons': 0, 'vs': {}}
+
+        def _ens_vs(key, opp):
+            if opp not in data[key]['vs']:
+                data[key]['vs'][opp] = {'games': 0, 'wins': 0, 'losses': 0, 'abandons': 0}
+
+        for entry in log:
+            w      = entry.get('winner', '')
+            l      = entry.get('loser',  '')
+            status = entry.get('status', 'finished')
+
+            if status == 'finished' and w and l and w != l:
+                for name, opp, won in [(w, l, True), (l, w, False)]:
+                    _ens(name)
+                    data[name]['games'] += 1
+                    data[name]['wins' if won else 'losses'] += 1
+                    _ens_vs(name, opp)
+                    data[name]['vs'][opp]['games'] += 1
+                    data[name]['vs'][opp]['wins' if won else 'losses'] += 1
+
+            elif status == 'abandoned' and w:
+                key_b = l if l and l != '?' else None
+                for key, opp in ([(w, key_b), (key_b, w)] if key_b else [(w, None)]):
+                    if key is None:
+                        continue
+                    _ens(key)
+                    data[key]['games']   += 1
+                    data[key]['abandons'] += 1
+                    if opp:
+                        _ens_vs(key, opp)
+                        data[key]['vs'][opp]['games']    += 1
+                        data[key]['vs'][opp]['abandons'] += 1
+
+        _save(data)
+        return data
+
+
 def get_stats() -> dict:
     with _lock:
         return _load()
