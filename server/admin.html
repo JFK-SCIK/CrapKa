@@ -214,11 +214,15 @@ async function deployNow() {
   if (active.length > 0) {
     if (!confirm('⚠️ '+active.length+' salle(s) avec joueur(s) connecté(s).\nDéployer quand même ?')) return;
   }
-  const r = await fetch('/deploy/now?pwd='+encodeURIComponent(PWD), {method:'POST'}).catch(()=>null);
+  const r = await fetch('/deploy/now?pwd='+encodeURIComponent(PWD), {method:'POST'}).then(r=>r.json()).catch(()=>null);
   if (r && r.ok) {
-    _setLbl('🚀 Deploy lancé — surveillance toutes les 5s…');
-    _startPoll(true);
-    setTimeout(_tick, 3000);
+    if (r.up_to_date) {
+      _setLbl('✅ Déjà à jour — aucun déploiement nécessaire.');
+    } else {
+      _setLbl('🚀 Deploy lancé — surveillance toutes les 5s…');
+      _startPoll(true);
+      setTimeout(_tick, 3000);
+    }
   } else {
     _setLbl('❌ Erreur lors du déploiement.');
   }

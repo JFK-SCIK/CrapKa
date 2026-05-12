@@ -179,8 +179,22 @@ async def status():
 @app.post('/deploy/now')
 async def deploy_now(pwd: str = ''):
     _check_admin(pwd)
+    repo = str(Path(__file__).parent.parent)
+    try:
+        subprocess.check_call(
+            ['git', '-C', repo, 'fetch', 'origin', CRAPKA_BRANCH],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+        )
+        behind = subprocess.check_output(
+            ['git', '-C', repo, 'log', f'HEAD..origin/{CRAPKA_BRANCH}', '--oneline'],
+            text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        if not behind:
+            return {'ok': True, 'up_to_date': True}
+    except Exception:
+        pass
     _launch_deploy()
-    return {'ok': True}
+    return {'ok': True, 'up_to_date': False}
 
 
 @app.post('/deploy/wait')
