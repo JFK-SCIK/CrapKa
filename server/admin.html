@@ -105,9 +105,10 @@ button.sec{background:var(--bg3);}
       <th class="num">Parties</th>
       <th class="num">Victoires</th>
       <th class="num">Défaites</th>
+      <th class="num">Abandons</th>
       <th class="num">%</th>
     </tr></thead>
-    <tbody id="stats-body"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
+    <tbody id="stats-body"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
   </table>
 </div>
 
@@ -357,7 +358,7 @@ function renderStats(data) {
     return b[1].games - a[1].games;
   });
   if (!players.length) {
-    document.getElementById('stats-body').innerHTML = '<tr><td colspan="6" class="empty">Aucune statistique.</td></tr>';
+    document.getElementById('stats-body').innerHTML = '<tr><td colspan="7" class="empty">Aucune statistique.</td></tr>';
     return;
   }
   let html = '';
@@ -377,7 +378,8 @@ function renderStats(data) {
       <td class="stats-num">${st.games}</td>
       <td class="stats-num win">${st.wins}</td>
       <td class="stats-num lose">${st.losses}</td>
-      <td class="stats-num">${pct(st.wins, st.games)}</td>
+      <td class="stats-num" style="color:var(--text2)">${st.abandons||0}</td>
+      <td class="stats-num">${pct(st.wins, st.games - (st.abandons||0))}</td>
     </tr>`;
     for (const [opp, vs] of vsEntries) {
       html += `<tr class="vs"${exp ? '' : ' style="display:none"'}>
@@ -386,7 +388,8 @@ function renderStats(data) {
         <td class="stats-num">${vs.games}</td>
         <td class="stats-num win">${vs.wins}</td>
         <td class="stats-num lose">${vs.losses}</td>
-        <td class="stats-num">${pct(vs.wins, vs.games)}</td>
+        <td class="stats-num" style="color:var(--text2)">${vs.abandons||0}</td>
+        <td class="stats-num">${pct(vs.wins, vs.games - (vs.abandons||0))}</td>
       </tr>`;
     }
   }
