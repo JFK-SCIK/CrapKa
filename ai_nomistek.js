@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.1';
+const _VER_AI_NOMISTEK='1.4.2';
 
 const AI_NOMISTEK=(()=>{
 
@@ -205,7 +205,8 @@ function _buildCrapettePath(g,ui,pidx){
     if(prevTarget===0?g.commons.some(p2=>!p2.length):g.commons.some((_,ci)=>_sTopNum(g,ui,ci)===prevTarget)) break;
     if(target!==1&&prevTarget>=1){
       const anyPileForKing=g.commons.some((_,ci)=>{const t=_sTopNum(g,ui,ci);return t>0&&t<12;});
-      if(anyPileForKing&&g.players[pidx].hand.some(c=>c.num===13)){pathNums.add(13);break;}
+      if(anyPileForKing&&g.players[pidx].hand.some(c=>c.num===13)
+         &&!_sCardAvailableForPath(g,ui,pidx,prevTarget)){pathNums.add(13);break;}
     }
     target=prevTarget;
   }
