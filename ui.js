@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════
 // ANIMATION
 // ══════════════════════════════════════════════
-const _VER_UI='1.2.40';
+const _VER_UI='1.2.41';
 function findCardEl(card,src){
   if(src.type==='hand'){
     return document.querySelector(`[data-hand-uid="${card.uid}"]`);
@@ -265,16 +265,17 @@ function loadFromFile(){
       try{
         const data=JSON.parse(e.target.result);
         const snap=data.version?data.current:data; // compat ancien format
-        _restoreFromSnap(snap);
-        if(data.rollback&&Array.isArray(data.rollback)){
-          _undoStack.push(...data.rollback);
-        }
-        if(data.aiLevel){
-          const sel=document.getElementById('ai-level');
-          if(sel) sel.value=String(data.aiLevel);
-        }
-        setStatus('📂 Chargé: '+file.name);
-        addMoveLog('📂 Load: '+file.name,'sys');
+        _applySnapWithAIPick(snap,(aiKey,aiName)=>{
+          if(data.rollback&&Array.isArray(data.rollback))
+            _undoStack.push(...data.rollback);
+          if(data.aiLevel){
+            const sel=document.getElementById('ai-level');
+            if(sel) sel.value=String(data.aiLevel);
+          }
+          const tag=aiName?' ['+aiName+']':'';
+          setStatus('📂 Chargé: '+file.name+tag);
+          addMoveLog('📂 Load: '+file.name+tag,'sys');
+        },null);
       } catch(err){ setStatus('Erreur lecture fichier'); }
     };
     reader.readAsText(file);
@@ -1227,6 +1228,33 @@ function _esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Sélecteur d'IA commun : si snap.vsAI, affiche la liste des IA disponibles (★ = originale).
+// onApplied(aiKey, aiName) : effets de bord post-restauration (log, undo stack…).
+// backFn : action du bouton "← Retour" (null = fermer la modale).
+function _applySnapWithAIPick(snap,onApplied,backFn){
+  const _doApply=(aiKey,aiName)=>{
+    _restoreFromSnap(snap);
+    if(aiKey){
+      UI.aiProfile=aiKey;
+      if(G&&G.players&&G.players[UI.aiIdx]) G.players[UI.aiIdx].name=aiName;
+      render();
+    }
+    if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
+      setTimeout(aiPlayTurn,300);
+    if(onApplied) onApplied(aiKey,aiName);
+  };
+  if(!snap.vsAI){_doApply(null,null);return;}
+  const origName=snap.playerNames?.[1]||'';
+  const profiles=Object.entries(_AI_REGISTRY)
+    .filter(([key])=>!window._AI_CONFIG||window._AI_CONFIG[key]!==false);
+  const btns=profiles.map(([key,p])=>({
+    label:p.name+(p.name===origName?' ★':''),
+    fn:()=>{closeModal();_doApply(key,p.name);}
+  }));
+  btns.push({label:'← Retour',fn:backFn||closeModal});
+  showModal('Choisir l\'IA','Quelle IA pour cette partie ?',btns);
+}
+
 async function loadServerSaves(){
   try{
     const saves=await fetch('/saves').then(r=>r.json());
@@ -1244,32 +1272,12 @@ async function _pickSrvSave(meta){
   try{
     const data=await fetch('/saves/'+meta.id).then(r=>r.json());
     if(!data||!data.snap){setStatus('Erreur chargement save');return;}
-    if(!data.snap.vsAI){_applySrvSave(data,null,null);return;}
-    // Partie vs IA : proposer le choix de l'IA avec marquage de l'originale
-    const origName=data.snap.playerNames?.[1]||'';
-    const profiles=Object.entries(_AI_REGISTRY)
-      .filter(([key])=>!window._AI_CONFIG||window._AI_CONFIG[key]!==false);
-    const btns=profiles.map(([key,p])=>({
-      label:p.name+(p.name===origName?' ★':''),
-      fn:()=>{closeModal();_applySrvSave(data,key,p.name);}
-    }));
-    btns.push({label:'← Retour',fn:()=>loadServerSaves()});
-    showModal('Choisir l\'IA','Quelle IA pour cette partie ?',btns);
+    _applySnapWithAIPick(data.snap,(aiKey,aiName)=>{
+      const tag=aiName?' ['+aiName+']':'';
+      setStatus('📂 Srv: '+data.name+tag);
+      addMoveLog('📂 Srv load: '+data.name+tag,'sys');
+    },()=>loadServerSaves());
   }catch(e){setStatus('Erreur: '+e.message);}
-}
-
-function _applySrvSave(data,aiKey,aiName){
-  _restoreFromSnap(data.snap);
-  if(aiKey){
-    UI.aiProfile=aiKey;
-    if(G&&G.players&&G.players[UI.aiIdx]) G.players[UI.aiIdx].name=aiName;
-    render();
-  }
-  const tag=aiName?' ['+aiName+']':'';
-  setStatus('📂 Srv: '+data.name+tag);
-  addMoveLog('📂 Srv load: '+data.name+tag,'sys');
-  if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
-    setTimeout(aiPlayTurn,300);
 }
 
 async function saveToServer(){
