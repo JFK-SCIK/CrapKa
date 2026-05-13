@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.2';
+const _VER_AI_NOMISTEK='1.4.3';
 
 const AI_NOMISTEK=(()=>{
 
@@ -196,7 +196,13 @@ function _buildCrapettePath(g,ui,pidx){
     if(g.commons.some((_,ci)=>_sTopNum(g,ui,ci)===target)) break;
     if(target===0){
       if(pathNums.has(12)) break;
-      if(!_sCardAvailableForPath(g,ui,pidx,12)) return null;
+      if(!_sCardAvailableForPath(g,ui,pidx,12)){
+        // Le Roi peut servir de Dame (Roi sur pile à 11 → valeur 12 → vide → As)
+        if(!pathNums.has(13)&&g.players[pidx].hand.some(c=>c.num===13)){
+          pathNums.add(13);target=11;continue;
+        }
+        return null;
+      }
       pathNums.add(12);target=11;continue;
     }
     if(!_sCardAvailableForPath(g,ui,pidx,target)) return null;
