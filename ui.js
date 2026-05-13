@@ -1233,22 +1233,43 @@ async function loadServerSaves(){
     if(!saves.length){setStatus('Aucun save serveur disponible');return;}
     const btns=saves.map(s=>({
       label:(s.name||s.id).slice(0,34)+(s.ai_name?' ['+s.ai_name+']':''),
-      fn:async()=>{
-        closeModal();
-        try{
-          const data=await fetch('/saves/'+s.id).then(r=>r.json());
-          if(!data||!data.snap){setStatus('Erreur chargement save');return;}
-          _restoreFromSnap(data.snap);
-          setStatus('📂 Srv: '+s.name);
-          addMoveLog('📂 Srv load: '+s.name,'sys');
-          if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
-            setTimeout(aiPlayTurn,300);
-        }catch(e){setStatus('Erreur chargement: '+e.message);}
-      }
+      fn:async()=>{ closeModal(); await _pickSrvSave(s); }
     }));
     btns.push({label:'← Fermer',fn:()=>closeModal()});
     showModal('Saves serveur','',btns);
   }catch(e){setStatus('Erreur: '+e.message);}
+}
+
+async function _pickSrvSave(meta){
+  try{
+    const data=await fetch('/saves/'+meta.id).then(r=>r.json());
+    if(!data||!data.snap){setStatus('Erreur chargement save');return;}
+    if(!data.snap.vsAI){_applySrvSave(data,null,null);return;}
+    // Partie vs IA : proposer le choix de l'IA avec marquage de l'originale
+    const origName=data.snap.playerNames?.[1]||'';
+    const profiles=Object.entries(_AI_REGISTRY)
+      .filter(([key])=>!window._AI_CONFIG||window._AI_CONFIG[key]!==false);
+    const btns=profiles.map(([key,p])=>({
+      label:p.name+(p.name===origName?' ★':''),
+      fn:()=>{closeModal();_applySrvSave(data,key,p.name);}
+    }));
+    btns.push({label:'← Retour',fn:()=>loadServerSaves()});
+    showModal('Choisir l\'IA','Quelle IA pour cette partie ?',btns);
+  }catch(e){setStatus('Erreur: '+e.message);}
+}
+
+function _applySrvSave(data,aiKey,aiName){
+  _restoreFromSnap(data.snap);
+  if(aiKey){
+    UI.aiProfile=aiKey;
+    if(G&&G.players&&G.players[UI.aiIdx]) G.players[UI.aiIdx].name=aiName;
+    render();
+  }
+  const tag=aiName?' ['+aiName+']':'';
+  setStatus('📂 Srv: '+data.name+tag);
+  addMoveLog('📂 Srv load: '+data.name+tag,'sys');
+  if(UI.vsAI&&G&&G.cur===UI.aiIdx&&G.phase==='play'&&!(_stepMode&&_debugMode))
+    setTimeout(aiPlayTurn,300);
 }
 
 async function saveToServer(){

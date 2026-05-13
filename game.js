@@ -664,6 +664,7 @@ function _restoreFromSnap(s){
   UI.pileKingVal=[...s.kingVal];
   UI.pileKingPending=[...s.kingPend];
   if(s.vsAI!==undefined) UI.vsAI=s.vsAI;
+  if(s.vsAI) UI.aiIdx=1;
   if(s.aiProfile!==undefined) UI.aiProfile=s.aiProfile;
   UI.sel=null;UI.vtgts=[];_animating=false;
   clearTimeout(_aiTimer);_aiMoves=[];
