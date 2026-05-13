@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.3.0';
+const _VER_AI='1.3.1';
 const _AI_REGISTRY={}; // profils IA : rempli par ai_tibolos.js, ai_patcartier.js, etc.
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
@@ -549,12 +549,16 @@ function _sLegal(g,ui,pidx,visibleOnly){
 
   // Piles vides : tous les As disponibles (main + défausse + crapette), sinon pioche.
   // Générer un coup par As trouvé : le BF compare via defVsHandPenalty + handPlayBonus.
+  // Exception : si la crapette est jouable sur une pile non-vide, l'As attend (crapette passe en premier).
+  const crTop=peek(p.crapette);
+  const crapetteBlocksAce=!visibleOnly&&crTop&&g.commons.some((_,ci2)=>g.commons[ci2].length&&_sCanOnCommon(g,ui,crTop,ci2));
   for(let ci=0;ci<4;ci++){
     if(!g.commons[ci].length){
       const srcs=_sSources(g,pidx,visibleOnly);
       const aces=srcs.filter(({card})=>card.num===1);
       if(aces.length){
-        for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
+        if(!crapetteBlocksAce)
+          for(const ace of aces) moves.push({type:'play',card:ace.card,src:ace.src,ci});
       } else if(g.pioche.length>0||g.futurePioche.length>0){
         // Ne pas initier depuis pioche si crapette ≤ 3 et aucun as visible (trop risqué)
         const crLen=g.players[pidx].crapette.length;
