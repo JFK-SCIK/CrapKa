@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.3.2';
+const _VER_AI='1.3.3';
 const _AI_REGISTRY={}; // profils IA : rempli par ai_tibolos.js, ai_patcartier.js, etc.
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
@@ -551,8 +551,9 @@ function _sLegal(g,ui,pidx,visibleOnly){
     }
   }
 
-  // Main vide → tirage immédiat (priorité sur tout sauf clear/king forcés)
-  if(p.hand.length===0&&!visibleOnly) return [{type:'redraw'}];
+  // Main vide → tirage immédiat (sauf si As de crapette jouable sur pile vide après clear auto)
+  const _crAceOnEmpty=peek(p.crapette);
+  if(p.hand.length===0&&!visibleOnly&&!(_crAceOnEmpty?.num===1&&g.commons.some(c=>!c.length))) return [{type:'redraw'}];
 
   // Piles vides : tous les As disponibles (main + défausse + crapette), sinon pioche.
   // Générer un coup par As trouvé : le BF compare via defVsHandPenalty + handPlayBonus.
