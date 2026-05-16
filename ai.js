@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — FILE DE COUPS ASYNCHRONE
 // ══════════════════════════════════════════════
-const _VER_AI='1.3.3';
+const _VER_AI='1.3.4';
 const _AI_REGISTRY={}; // profils IA : rempli par ai_tibolos.js, ai_patcartier.js, etc.
 // ── IA : liste de moves à rejouer un par un avec animation ──
 let _aiMoves=[];
@@ -336,27 +336,7 @@ function _applyForcedMoves(){
     }
     if(changed) continue;
 
-    // 3. Piles vides avec as visible → initialiser, SAUF si la crapette est jouable sur une pile
-    // non-vide (dans ce cas, le BF jouera d'abord la crapette, puis placera l'as au bon moment).
-    {
-      const crTopF=peek(G.players[G.cur].crapette);
-      const crapetteCanPlay=crTopF&&G.commons.some((c,ci2)=>c.length&&canOnCommon(crTopF,ci2));
-      if(!crapetteCanPlay){
-        for(let ci=0;ci<4;ci++){
-          if(G.commons[ci].length===0){
-            const ace=_findAce();
-            if(ace){
-              _q({type:'init',ci,card:ace.card,src:ace.src});
-              _applyMoveToState(G,UI,{type:'init',ci,card:ace.card,src:ace.src});
-              changed=true;break;
-            }
-          }
-        }
-      }
-    }
-    if(changed) continue;
-
-    // 4. Piles vides sans as → retourner pioche (as non disponible = laissé au BF)
+    // 3. Piles vides sans as → retourner pioche (as non disponible = laissé au BF)
     for(let ci=0;ci<4;ci++){
       if(G.commons[ci].length===0&&!_findAce()&&(G.pioche.length>0||G.futurePioche.length>0)){
         if(G.pioche.length===0){G.pioche=shuffle([...G.futurePioche]);G.futurePioche=[];}
