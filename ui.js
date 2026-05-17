@@ -1040,8 +1040,8 @@ function _seqsToText(){
     const prefix=s.isBest?'★ ':'  ';
     const movesStr=s.moves.length?s.moves.map(_fmtMove).join(' | '):'(fin)';
     const hs=s.handScore||0;
-    lines.push(prefix+s.score.toFixed(1)+'# '+movesStr+' (M:'+(hs>=0?'+':'')+hs.toFixed(0)+')');
-    if(s.breakdown) lines.push('     '+s.breakdown);
+    const extra=s.breakdown?' | '+s.breakdown:'';
+    lines.push(prefix+s.score.toFixed(1)+'# '+movesStr+' (M:'+(hs>=0?'+':'')+hs.toFixed(0)+')'+extra);
   }
   return lines.join('\n');
 }
