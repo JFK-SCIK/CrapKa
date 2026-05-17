@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.5';
+const _VER_AI_NOMISTEK='1.4.6';
 
 const AI_NOMISTEK=(()=>{
 
@@ -256,18 +256,53 @@ function _oppRouteLen(g,ui,aiIdx){
   return minDist;
 }
 
-function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
-  const crapette=moves.filter(m=>m.type==='play'&&m.src?.type==='crapette');
-  const init    =moves.filter(m=>m.type==='init'||m.type==='clear');
-  const nonCrPiles=moves.filter(m=>m.type==='play'&&m.src?.type!=='crapette');
-  let pilesOnPath=[],pilesOther=nonCrPiles;
-  if(pathNums&&nonCrPiles.length){
-    pilesOnPath=nonCrPiles.filter(m=>m.card&&pathNums.has(m.card.num));
-    pilesOther =nonCrPiles.filter(m=>!pilesOnPath.includes(m));
+// Construit l'ensemble des valeurs sur la Route : du sommet de pile le plus proche (circulaire)
+// jusqu'à crTNum inclus. Ex : piles {9,V,5,6}, crT=4 → V(11) est le plus proche → Route={12,1,2,3,4}.
+function _buildRoute(g,ui,crTNum){
+  let minDist=13,bestTop=-1;
+  for(let ci=0;ci<4;ci++){
+    const tn=_sTopNum(g,ui,ci);
+    if(tn===13) continue;
+    const dist=tn===0?crTNum:(crTNum-tn+12)%12;
+    if(dist>0&&dist<minDist){minDist=dist;bestTop=tn;}
   }
-  const demand=moves.filter(m=>m.type==='demand');
-  const end   =moves.filter(m=>m.type==='end');
-  return[...crapette,...init,...pilesOnPath,...pilesOther,...demand,...end];
+  if(bestTop===-1) return new Set([crTNum]);
+  const routeNums=new Set();
+  let cur=bestTop===0?1:(bestTop%12)+1;
+  for(let i=0;i<minDist;i++){routeNums.add(cur);cur=(cur%12)+1;}
+  return routeNums;
+}
+
+function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
+  const p=g.players[aiIdx];
+  const crT=p.crapette.length?p.crapette[p.crapette.length-1]:null;
+  const routeNums=(crT&&crT.num!==13)?_buildRoute(g,ui,crT.num):null;
+
+  // Sommet de défausse qui démasque une carte de la Route
+  const unmaskNums=new Set();
+  if(routeNums&&p.defausse){
+    for(const d of p.defausse){
+      if(d.length>=2&&routeNums.has(d[d.length-2].num)) unmaskNums.add(d[d.length-1].num);
+    }
+  }
+
+  const tier1cr=[],tier1other=[],tier2=[],tier3init=[],tier3other=[],tier3demand=[],tier3end=[];
+  for(const m of moves){
+    if(m.type==='init'||m.type==='clear'){tier3init.push(m);}
+    else if(m.type==='demand'){tier3demand.push(m);}
+    else if(m.type==='end'){tier3end.push(m);}
+    else if(m.type==='play'&&m.card){
+      const isCr=m.src?.type==='crapette';
+      if(isCr||(routeNums&&routeNums.has(m.card.num))){
+        (isCr?tier1cr:tier1other).push(m);
+      } else if(m.src?.type==='defausse'&&unmaskNums.has(m.card.num)){
+        tier2.push(m);
+      } else{
+        tier3other.push(m);
+      }
+    } else{tier3other.push(m);}
+  }
+  return[...tier1cr,...tier1other,...tier2,...tier3init,...tier3other,...tier3demand,...tier3end];
 }
 
 function _bfExpand(seq,aiIdx){
