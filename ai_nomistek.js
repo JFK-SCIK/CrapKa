@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.4';
+const _VER_AI_NOMISTEK='1.4.5';
 
 const AI_NOMISTEK=(()=>{
 
@@ -197,7 +197,8 @@ function _buildCrapettePath(g,ui,pidx){
   const cr=g.players[pidx].crapette;
   if(!cr.length) return null;
   const crT=cr[cr.length-1];
-  if(g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci))) return null;
+  // Crapette directement jouable → on-path = {crT seule}, plein bonus tier sans discount
+  if(g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci))) return new Set([crT.num]);
   const pathNums=new Set();
   let target=crT.num-1;
   let limit=15;
