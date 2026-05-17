@@ -1030,8 +1030,31 @@ function showRules(){
 }
 
 // ── SNAPSHOT pour debug ──
+function _seqsToText(){
+  const seqs=window._dbgBFSequences;
+  if(!seqs||!seqs.length) return null;
+  const expCount=window._dbgBFExpansions!=null?' · '+window._dbgBFExpansions+' exp':'';
+  const tour=G?G.players[G.cur].name:'?';
+  const lines=['Séquences BF ('+seqs.length+expCount+') — tour: '+tour];
+  for(const s of seqs){
+    const prefix=s.isBest?'★ ':'  ';
+    const movesStr=s.moves.length?s.moves.map(_fmtMove).join(' | '):'(fin)';
+    const hs=s.handScore||0;
+    lines.push(prefix+s.score.toFixed(1)+'# '+movesStr+' (M:'+(hs>=0?'+':'')+hs.toFixed(0)+')');
+    if(s.breakdown) lines.push('     '+s.breakdown);
+  }
+  return lines.join('\n');
+}
+
 function snapshot(){
   if(!G){addMoveLog('Pas de partie en cours','sys');return;}
+  const seqTxt=_seqsToText();
+  if(seqTxt){
+    const done=()=>setStatus('Séquences copiées ('+( window._dbgBFSequences?.length||0)+')');
+    if(navigator.clipboard){navigator.clipboard.writeText(seqTxt).then(done).catch(()=>{_fbCopy(seqTxt);done();});}
+    else{_fbCopy(seqTxt);done();}
+    return;
+  }
   const state={
     versions:{game:_VER_GAME,ai:_VER_AI,ui:_VER_UI,app:_VER_APP},
     tour:G.players[G.cur].name,
