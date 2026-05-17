@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.3';
+const _VER_AI_NOMISTEK='1.4.4';
 
 const AI_NOMISTEK=(()=>{
 
@@ -146,9 +146,18 @@ function _eval(g,ui,aiIdx){
     }
     if(minDist<12) sc+=Math.max(0,(6-minDist)*4);
   }
-  if(g.pioche.length>0||g.futurePioche.length>0){
+  // Pile vide + pioche dispo + crapette non jouable → opportunité de retourner une carte utile.
+  // Bonus proportionnel à l'aspect "intermédiaire" de la crapette : min(crT-1, 12-crT+1),
+  // maximal vers crT=6-7 (beaucoup de valeurs utiles à tirer), minimal aux extrêmes.
+  if(crT&&(g.pioche.length>0||g.futurePioche.length>0)){
     const emptyPiles=g.commons.filter(p=>!p.length).length;
-    if(emptyPiles>0) sc-=emptyPiles*30;
+    if(emptyPiles>0){
+      const crPlayableNow=g.commons.some((_,ci)=>_sCanOnCommon(g,ui,crT,ci));
+      if(!crPlayableNow){
+        const interm=Math.min(crT.num-1,12-crT.num+1);
+        sc+=emptyPiles*interm*2;
+      }
+    }
   }
   sc+=_evalHandScore(g,ui,aiIdx);
   if(oppCrT){
