@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.6';
+const _VER_AI_NOMISTEK='1.4.7';
 
 const AI_NOMISTEK=(()=>{
 
@@ -385,27 +385,21 @@ function _bruteForce(){
   let bestTermScore=-Infinity;
   let expansions=0;
   while(active.length>0&&expansions<BF_MAX_EXPANSIONS){
-    let bestIdx=0, bestF=active[0].score+active[0].hMax;
-    for(let i=1;i<active.length;i++){
-      const f=active[i].score+active[i].hMax;
-      if(f>bestF){bestF=f;bestIdx=i;}
-    }
-    if(bestF<bestTermScore) break;
-    const seq=active[bestIdx];
-    active.splice(bestIdx,1);
+    const seq=active.pop(); // DFS LIFO — _bfSortMoves (Route) guide la direction
+    if(seq.score+seq.hMax<bestTermScore) continue;
     expansions++;
     const expanded=_bfExpand(seq,aiIdx);
-    for(const s of expanded){
+    // Pousser en ordre inverse : Tier1 (Route/crapette) arrive au sommet de la pile
+    for(let i=expanded.length-1;i>=0;i--){
+      const s=expanded[i];
       if(s.terminated){
         terminated.push(s);
         if(s.score>bestTermScore) bestTermScore=s.score;
       } else {
         s.hMax=_hMax(s,aiIdx);
-        if(bestTermScore===-Infinity||s.score+s.hMax>=bestTermScore) active.push(s);
+        if(s.score+s.hMax>=bestTermScore) active.push(s);
       }
     }
-    if(bestTermScore>-Infinity)
-      active=active.filter(s=>s.score+s.hMax>=bestTermScore);
   }
   let best=null;
   for(const seq of terminated){
