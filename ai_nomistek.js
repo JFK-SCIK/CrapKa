@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.7';
+const _VER_AI_NOMISTEK='1.4.8';
 
 const AI_NOMISTEK=(()=>{
 
@@ -293,7 +293,7 @@ function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
     else if(m.type==='end'){tier3end.push(m);}
     else if(m.type==='play'&&m.card){
       const isCr=m.src?.type==='crapette';
-      if(isCr||(routeNums&&routeNums.has(m.card.num))){
+      if(isCr||(routeNums&&routeNums.has(m.card.num))||(pathNums&&pathNums.has(m.card.num))){
         (isCr?tier1cr:tier1other).push(m);
       } else if(m.src?.type==='defausse'&&unmaskNums.has(m.card.num)){
         tier2.push(m);
