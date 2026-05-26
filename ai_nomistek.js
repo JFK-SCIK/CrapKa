@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.8';
+const _VER_AI_NOMISTEK='1.4.9';
 
 const AI_NOMISTEK=(()=>{
 
@@ -352,7 +352,10 @@ function _bfExpand(seq,aiIdx){
     const isDiscovery=isCrapettePlay||isPiocheDiscovery||(mv.type==='redraw');
     // Pénalité de délai : chaque coup non-chemin joué avant la crapette coûte -1 → D-first score mieux que T-first
     const preCrapetteDelay=(!isDiscovery&&seq.triggerIdx===-1&&hasCrapettePath&&!isOnPath)?-1:0;
-    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+oppRoutePenalty+preCrapetteDelay;
+    // Pénalité forte : jouer sur pile vide hors-chemin avant la crapette est presque toujours mauvais
+    // (on peut le faire après ; et la pile vide pourrait accueillir l'As suivant de la crapette)
+    const emptyPileBeforeCr=(isEmptyPilePlay&&hasCrapettePath&&!isOnPath&&!seq.crapettePlayed)?-20:0;
+    const newBonus=seq.extraBonus+tierBonus+discounted+defVsHandPenalty+oppRoutePenalty+preCrapetteDelay+emptyPileBeforeCr;
     const meta={isOnPath,handEmptied,isCrapettePlay,isClear};
     const newTriggerIdx=seq.triggerIdx!==-1?seq.triggerIdx:(isDiscovery?seq.moves.length:-1);
     return{
