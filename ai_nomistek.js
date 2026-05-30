@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.9';
+const _VER_AI_NOMISTEK='1.4.10';
 
 const AI_NOMISTEK=(()=>{
 
@@ -289,7 +289,11 @@ function _bfSortMoves(moves,g,ui,aiIdx,pathNums){
   const tier1cr=[],tier1other=[],tier2=[],tier3init=[],tier3other=[],tier3demand=[],tier3end=[];
   for(const m of moves){
     if(m.type==='init'||m.type==='clear'){tier3init.push(m);}
-    else if(m.type==='demand'){tier3demand.push(m);}
+    else if(m.type==='demand'){
+        if(m.card&&((routeNums&&routeNums.has(m.card.num))||(pathNums&&pathNums.has(m.card.num)))){
+          tier1other.push(m);
+        } else {tier3demand.push(m);}
+      }
     else if(m.type==='end'){tier3end.push(m);}
     else if(m.type==='play'&&m.card){
       const isCr=m.src?.type==='crapette';
