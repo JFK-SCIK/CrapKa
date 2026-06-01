@@ -1,7 +1,7 @@
 ﻿// ══════════════════════════════════════════════
 // IA — PROFIL NOMISTEK
 // ══════════════════════════════════════════════
-const _VER_AI_NOMISTEK='1.4.10';
+const _VER_AI_NOMISTEK='1.4.11';
 
 const AI_NOMISTEK=(()=>{
 
@@ -338,7 +338,7 @@ function _bfExpand(seq,aiIdx){
     const isOnPath=!seq.postKey&&pathNums&&(mv.type==='clear'||(mv.card&&pathNums.has(mv.card.num)));
     const moveDiscount=(seq.postKey||(hasCrapettePath&&!isOnPath))?BF_DISCOUNT:1;
     const handPlayBonus=(isOnPath||(isHandPlay&&!hasCrapettePath))?5:0;
-    const handEmptied=mv.type!=='end'&&p.hand.length>0&&ng.players[pidx].hand.length===0;
+    const handEmptied=mv.type!=='end'&&mv.ci!==undefined&&p.hand.length>0&&ng.players[pidx].hand.length===0;
     const tierBonus=isCrapettePlay?500:handEmptied?150:0;
     const kingFromHandPenalty=isHandPlay&&mv.card.num===13?(isOnPath?0:-35):0;
     const isEmptyPilePlay=mv.type==='play'&&mv.ci!==undefined&&!g.commons[mv.ci].length;
